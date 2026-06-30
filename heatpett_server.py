@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Headpat Server v2.3 — VRChat OSC <-> Headpat Dongle USB bridge"""
+"""Headpat Server v2.6 — VRChat OSC <-> Headpat Dongle USB bridge"""
 
 import tkinter as tk
 from tkinter import ttk
@@ -11,6 +11,10 @@ import re
 import time
 import os
 import sys
+import urllib.request
+import urllib.error
+import tempfile
+import shutil
 
 try:
     import serial
@@ -52,6 +56,14 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
+SERVER_VERSION  = "v2.6"
+GITHUB_OWNER    = "LucyWolf"
+HEADPAT_REPO    = "Headpat"
+DONGLE_REPO     = "dongel_NRF"
+SERVER_REPO     = "Headpat-Server"
+NRF52_LABELS    = {"NRF52BOOT", "NICENANO"}
+UPDATE_INTERVAL = 1800
+
 _BASE     = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 ICON_PATH = os.path.join(_BASE, "icon.png")
 
@@ -91,6 +103,9 @@ class App(tk.Tk):
         self._hp_ver_var     = tk.StringVar(value="?")
         self._dongle_ver_var = tk.StringVar(value="?")
         self._save_after_id  = None
+        self._updates        = {}   # "headpat"|"dongle"|"server" -> {tag, url, asset, path}
+        self._known_drives   = set()
+        self._badge_lbl      = None
 
         self._load_icon()
         self._build()
@@ -110,6 +125,213 @@ class App(tk.Tk):
             self.after(300, self._connect)
         if os.name == "posix":
             self.after(800, self._check_linux_serial_perms)
+        threading.Thread(target=self._update_loop, daemon=True).start()
+        threading.Thread(target=self._drive_loop,  daemon=True).start()
+
+    # ── Update checker ───────────────────────────────────────────────────────
+    def _update_loop(self):
+        time.sleep(5)
+        while True:
+            self._check_all_releases()
+            time.sleep(UPDATE_INTERVAL)
+
+    def _check_all_releases(self):
+        asset_win  = "HeadpatServer-Setup.exe"
+        asset_lin  = "HeadpatServer-x86_64.AppImage"
+        checks = [
+            ("headpat", HEADPAT_REPO, "headpat-firmware.uf2"),
+            ("dongle",  DONGLE_REPO,  "firmware.uf2"),
+            ("server",  SERVER_REPO,  asset_win if os.name == "nt" else asset_lin),
+        ]
+        for key, repo, asset_name in checks:
+            try:
+                data   = self._gh_latest(repo)
+                tag    = data.get("tag_name", "")
+                assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
+                if asset_name not in assets:
+                    continue
+                existing = self._updates.get(key, {})
+                if existing.get("tag") == tag:
+                    continue
+                if key == "server" and self._parse_ver(tag) <= self._parse_ver(SERVER_VERSION):
+                    continue
+                self._updates[key] = {"tag": tag, "url": assets[asset_name],
+                                      "asset": asset_name, "path": None}
+                self._q.put(("update_found", (key, tag)))
+                threading.Thread(target=self._prefetch, args=(key,), daemon=True).start()
+            except Exception:
+                pass
+
+    def _gh_latest(self, repo):
+        url = f"https://api.github.com/repos/{GITHUB_OWNER}/{repo}/releases/latest"
+        req = urllib.request.Request(url, headers={"User-Agent": f"HeadpatServer/{SERVER_VERSION}"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return json.loads(r.read())
+
+    def _parse_ver(self, tag):
+        return tuple(int(x) for x in re.findall(r'\d+', tag))
+
+    def _prefetch(self, key):
+        entry = self._updates.get(key)
+        if not entry or entry.get("path"):
+            return
+        try:
+            suffix = os.path.splitext(entry["asset"])[1]
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+            tmp.close()
+            req = urllib.request.Request(
+                entry["url"], headers={"User-Agent": f"HeadpatServer/{SERVER_VERSION}"})
+            with urllib.request.urlopen(req, timeout=120) as r, open(tmp.name, "wb") as f:
+                shutil.copyfileobj(r, f)
+            self._updates[key]["path"] = tmp.name
+            name = {"headpat": "Headpat", "dongle": "Dongle", "server": "Server"}.get(key, key)
+            self._log(f"Update bereit: {name} {entry['tag']}", "info")
+        except Exception as e:
+            self._log(f"Update-Download fehlgeschlagen ({key}): {e}", "warn")
+
+    # ── Drive watcher ─────────────────────────────────────────────────────────
+    def _drive_loop(self):
+        while True:
+            time.sleep(1.5)
+            try:
+                drives = self._find_nrf52_drives()
+                new = drives - self._known_drives
+                self._known_drives = drives
+                if new:
+                    self._q.put(("nrf52_drive", new))
+            except Exception:
+                pass
+
+    def _find_nrf52_drives(self):
+        found = set()
+        if os.name == "nt":
+            import ctypes, string
+            bitmask = ctypes.windll.kernel32.GetLogicalDrives()
+            for letter in string.ascii_uppercase:
+                if bitmask & 1:
+                    drive = f"{letter}:\\"
+                    if ctypes.windll.kernel32.GetDriveTypeW(drive) == 2:
+                        buf = ctypes.create_unicode_buffer(1024)
+                        try:
+                            ctypes.windll.kernel32.GetVolumeInformationW(
+                                drive, buf, 1024, None, None, None, None, 0)
+                            if buf.value in NRF52_LABELS:
+                                found.add(drive)
+                        except Exception:
+                            pass
+                bitmask >>= 1
+        else:
+            import getpass
+            user = getpass.getuser()
+            for base in (f"/media/{user}", f"/run/media/{user}", "/media"):
+                for label in NRF52_LABELS:
+                    p = os.path.join(base, label)
+                    if os.path.isdir(p):
+                        found.add(p)
+        return found
+
+    def _on_nrf52_drive(self, drives):
+        fw = {k: v for k, v in self._updates.items() if k in ("headpat", "dongle")}
+        drive = next(iter(drives))
+        self._log(f"NRF52-Laufwerk erkannt: {drive}", "info")
+
+        if not fw:
+            self._log("Kein Firmware-Update verfügbar", "warn")
+            return
+
+        if len(fw) == 1:
+            key   = next(iter(fw))
+            entry = fw[key]
+            name  = "Headpat" if key == "headpat" else "Dongle"
+            if tk.messagebox.askyesno(
+                "Firmware Update",
+                f"{name} Update {entry['tag']} gefunden.\nJetzt flashen?",
+                parent=self
+            ):
+                self._flash_uf2(key, drive)
+        else:
+            win = tk.Toplevel(self)
+            win.title("Firmware Update")
+            win.configure(bg=BG)
+            win.resizable(False, False)
+            win.grab_set()
+            tk.Label(win, text="NRF52-Laufwerk erkannt.\nWelches Gerät flashen?",
+                     bg=BG, fg=FG, font=("Segoe UI", 11), pady=12).pack(padx=20)
+            for key, entry in fw.items():
+                name = "Headpat" if key == "headpat" else "Dongle"
+                def _do(k=key, w=win, d=drive):
+                    w.destroy(); self._flash_uf2(k, d)
+                tk.Button(win, text=f"{name}  —  {entry['tag']}", command=_do,
+                          bg=BG_BTN, fg=FG, activebackground=BG_BTN_A, bd=0,
+                          relief="flat", font=("Segoe UI", 11), padx=16, pady=8,
+                          cursor="hand2").pack(fill="x", padx=20, pady=4)
+            tk.Button(win, text="Abbrechen", command=win.destroy,
+                      bg=BG_TITLE, fg=FG_DIM, activebackground=BG_BTN, bd=0,
+                      relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
+                      cursor="hand2").pack(pady=(4, 16))
+
+    def _flash_uf2(self, key, drive):
+        entry = self._updates.get(key)
+        if not entry or not entry.get("path"):
+            tk.messagebox.showerror(
+                "Warten", "Download läuft noch, bitte kurz warten.", parent=self)
+            return
+        try:
+            dest = os.path.join(drive, "firmware.uf2")
+            shutil.copy2(entry["path"], dest)
+            name = "Headpat" if key == "headpat" else "Dongle"
+            self._log(f"{name} {entry['tag']} geflasht — Gerät bootet neu", "info")
+        except Exception as e:
+            tk.messagebox.showerror("Flash-Fehler", str(e), parent=self)
+
+    def _open_update_dialog(self):
+        if not self._updates:
+            return
+        win = tk.Toplevel(self)
+        win.title("Updates")
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        tk.Frame(win, bg=ACCENT, height=2).pack(fill="x")
+        tk.Label(win, text="Verfügbare Updates", bg=BG, fg=FG,
+                 font=("Segoe UI", 12, "bold"), pady=12).pack(padx=20)
+        labels = {"headpat": "Headpat Firmware", "dongle": "Dongle Firmware",
+                  "server": "Server"}
+        for key, entry in self._updates.items():
+            row = tk.Frame(win, bg=BG)
+            row.pack(fill="x", padx=20, pady=4)
+            tk.Label(row, text=labels.get(key, key), bg=BG, fg=FG,
+                     font=("Segoe UI", 10)).pack(side="left")
+            tk.Label(row, text=entry["tag"], bg=BG, fg=ACCENT,
+                     font=("Segoe UI", 10, "bold")).pack(side="left", padx=8)
+            ready = bool(entry.get("path"))
+            tk.Label(row, text="✓" if ready else "⟳", bg=BG,
+                     fg=GREEN if ready else YELLOW,
+                     font=("Segoe UI", 10)).pack(side="right")
+            if key == "server":
+                tk.Button(row, text="Installieren",
+                          command=lambda k=key, w=win: (w.destroy(), self._server_update(k)),
+                          bg=BG_BTN, fg=FG, activebackground=BG_BTN_A, bd=0,
+                          relief="flat", font=("Segoe UI", 9), padx=8, pady=4,
+                          cursor="hand2").pack(side="right", padx=4)
+        tk.Label(win,
+                 text="Firmware: Gerät doppelt resetten → als Laufwerk einstecken",
+                 bg=BG, fg=FG_DIM, font=("Segoe UI", 9), pady=8).pack(padx=20)
+        tk.Button(win, text="Schließen", command=win.destroy,
+                  bg=BG_TITLE, fg=FG_DIM, activebackground=BG_BTN, bd=0,
+                  relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
+                  cursor="hand2").pack(pady=(0, 16))
+
+    def _server_update(self, key):
+        entry = self._updates.get(key)
+        if not entry or not entry.get("path"):
+            tk.messagebox.showinfo("Bitte warten", "Download läuft noch...", parent=self)
+            return
+        import subprocess
+        path = entry["path"]
+        if os.name != "nt":
+            os.chmod(path, 0o755)
+        subprocess.Popen([path])
+        self.after(500, self._on_close)
 
     # ── Linux serial port permissions ────────────────────────────────────────
     def _check_linux_serial_perms(self):
@@ -217,7 +439,7 @@ class App(tk.Tk):
             ico_lbl.bind("<ButtonPress-1>", self._drag_start)
             ico_lbl.bind("<B1-Motion>",     self._drag_move)
 
-        name_lbl = tk.Label(tb, text="Headpat Server v2.3",
+        name_lbl = tk.Label(tb, text=f"Headpat Server {SERVER_VERSION}",
                             bg=BG_TITLE, fg=FG, font=("Segoe UI", 11))
         name_lbl.pack(side="left", pady=10)
         name_lbl.bind("<ButtonPress-1>", self._drag_start)
@@ -236,6 +458,12 @@ class App(tk.Tk):
         gear.bind("<Button-1>", lambda e: self._open_settings(e))
         gear.bind("<Enter>",    lambda _: gear.config(fg=ACCENT))
         gear.bind("<Leave>",    lambda _: gear.config(fg=FG_DIM))
+
+        self._badge_lbl = tk.Label(tb, text="↑", bg=BG_TITLE, fg=YELLOW,
+                                   font=("Segoe UI", 13, "bold"), cursor="hand2", padx=6)
+        self._badge_lbl.bind("<Button-1>", lambda _: self._open_update_dialog())
+        self._badge_lbl.bind("<Enter>",    lambda _: self._badge_lbl.config(fg=GREEN))
+        self._badge_lbl.bind("<Leave>",    lambda _: self._badge_lbl.config(fg=YELLOW))
 
         # Console / Log button
         self._log_btn = tk.Label(tb, text="≡", bg=BG_TITLE, fg=FG_DIM,
@@ -489,7 +717,7 @@ class App(tk.Tk):
         ver_frame.pack(fill="x", padx=16, pady=(10, 12))
 
         for label, var, color in [
-            ("Server",  tk.StringVar(value="v2.3"), ACCENT),
+            ("Server",  tk.StringVar(value=SERVER_VERSION), ACCENT),
             ("Dongle",  self._dongle_ver_var,        FG),
             ("Headpat", self._hp_ver_var,             FG),
         ]:
@@ -734,6 +962,14 @@ class App(tk.Tk):
                     self._dongle_ver_var.set(val)
                 elif tag == "serial_lost":
                     self._disconnect()
+                elif tag == "update_found":
+                    key, ver = val
+                    names = {"headpat": "Headpat", "dongle": "Dongle", "server": "Server"}
+                    self._log(f"Update verfügbar: {names.get(key, key)} {ver}", "warn")
+                    if self._badge_lbl:
+                        self._badge_lbl.pack(side="right", padx=(0, 2))
+                elif tag == "nrf52_drive":
+                    self._on_nrf52_drive(val)
                 elif tag == "log":
                     if (self._console_win and self._console_win.winfo_exists()
                             and self._console_text):
