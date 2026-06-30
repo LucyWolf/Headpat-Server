@@ -1,17 +1,17 @@
-# HeatPett Server
+# Headpat Server
 
-Windows app that bridges VRChat OSC contact data to the HeatPett haptic headpat device.
+Windows app that bridges VRChat OSC contact data to the Headpat haptic headpat device.
 
 ## How it works
 
 ```
-VRChat  →  OSC  →  HeatPett Server  →  USB Serial  →  Dongle  →  BLE  →  HeatPett
+VRChat  →  OSC  →  Headpat Server  →  USB Serial  →  Dongle  →  BLE  →  Headpat
 ```
 
 - Receives OSC messages from VRChat on port 9001
 - Detects `Headpat_Left` / `Headpat_Right` / `PatStrap_*` avatar parameters
 - Scales contact depth (0.0–1.0) to motor intensity
-- Sends motor commands via USB serial to the HeatPett Dongle
+- Sends motor commands via USB serial to the Headpat Dongle
 
 ## Features
 
@@ -50,5 +50,5 @@ Add contact receivers to your avatar with parameter names containing `headpat` o
 
 ## Related
 
-- [Headpat](https://github.com/LucyWolf/Headpat) — HeatPett device firmware
+- [Headpat](https://github.com/LucyWolf/Headpat) — Headpat device firmware
 - [dongel_NRF](https://github.com/LucyWolf/dongel_NRF) — Dongle firmware
