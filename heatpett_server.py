@@ -55,7 +55,10 @@ BAT_INTERVAL  = 30.0
 _BASE     = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 ICON_PATH = os.path.join(_BASE, "icon.png")
 
-CONFIG_DIR  = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "HeadpatServer")
+if os.name == "nt":
+    CONFIG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "HeadpatServer")
+else:
+    CONFIG_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(os.path.expanduser("~"), ".config")), "HeadpatServer")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
 
 

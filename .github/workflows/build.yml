@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
 
     steps:
@@ -38,12 +38,77 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HeadpatServer-Setup
+          name: HeadpatServer-Setup-Windows
           path: dist_installer\*.exe
 
-      - name: Create Release
+      - name: Create Release (Windows)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dist_installer\*.exe
           generate_release_notes: true
+
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: sudo apt-get install -y python3-tk libfuse2
+
+      - name: Install Python dependencies
+        run: pip install pyserial python-osc pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller --onedir --windowed --name="HeadpatServer" --icon=icon.png heatpett_server.py
+
+      - name: Create AppDir
+        run: |
+          mkdir -p AppDir
+          cp -r dist/HeadpatServer AppDir/HeadpatServer
+          cp icon.png AppDir/icon.png
+
+          cat > AppDir/headpat-server.desktop << 'EOF'
+          [Desktop Entry]
+          Name=Headpat Server
+          Exec=AppRun
+          Icon=icon
+          Type=Application
+          Categories=Utility;
+          EOF
+
+          cat > AppDir/AppRun << 'EOF'
+          #!/bin/bash
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          exec "$HERE/HeadpatServer/HeadpatServer" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+      - name: Download appimagetool
+        run: |
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage --appimage-extract
+          mv squashfs-root appimagetool-extracted
+
+      - name: Build AppImage
+        run: ARCH=x86_64 ./appimagetool-extracted/AppRun AppDir HeadpatServer-x86_64.AppImage
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HeadpatServer-Linux
+          path: HeadpatServer-x86_64.AppImage
+
+      - name: Create Release (Linux)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: HeadpatServer-x86_64.AppImage
