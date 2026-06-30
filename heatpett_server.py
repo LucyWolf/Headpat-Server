@@ -299,10 +299,6 @@ class App(tk.Tk):
         for key, entry in self._updates.items():
             row = tk.Frame(win, bg=BG)
             row.pack(fill="x", padx=20, pady=4)
-            tk.Label(row, text=labels.get(key, key), bg=BG, fg=FG,
-                     font=("Segoe UI", 10)).pack(side="left")
-            tk.Label(row, text=entry["tag"], bg=BG, fg=ACCENT,
-                     font=("Segoe UI", 10, "bold")).pack(side="left", padx=8)
             ready = bool(entry.get("path"))
             tk.Label(row, text="✓" if ready else "⟳", bg=BG,
                      fg=GREEN if ready else YELLOW,
@@ -312,14 +308,58 @@ class App(tk.Tk):
                           command=lambda k=key, w=win: (w.destroy(), self._server_update(k)),
                           bg=BG_BTN, fg=FG, activebackground=BG_BTN_A, bd=0,
                           relief="flat", font=("Segoe UI", 9), padx=8, pady=4,
-                          cursor="hand2").pack(side="right", padx=4)
-        tk.Label(win,
-                 text="Firmware: Gerät doppelt resetten → als Laufwerk einstecken",
-                 bg=BG, fg=FG_DIM, font=("Segoe UI", 9), pady=8).pack(padx=20)
+                          cursor="hand2").pack(side="right", padx=(4, 6))
+            else:
+                tk.Button(row, text="Flashen →",
+                          command=lambda k=key, w=win: self._initiate_flash(k, w),
+                          bg=BG_BTN, fg=ACCENT, activebackground=BG_BTN_A, bd=0,
+                          relief="flat", font=("Segoe UI", 9), padx=8, pady=4,
+                          cursor="hand2").pack(side="right", padx=(4, 6))
+            tk.Label(row, text=entry["tag"], bg=BG, fg=ACCENT,
+                     font=("Segoe UI", 10, "bold")).pack(side="left", padx=(0, 8))
+            tk.Label(row, text=labels.get(key, key), bg=BG, fg=FG,
+                     font=("Segoe UI", 10)).pack(side="left")
         tk.Button(win, text="Schließen", command=win.destroy,
                   bg=BG_TITLE, fg=FG_DIM, activebackground=BG_BTN, bd=0,
                   relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
-                  cursor="hand2").pack(pady=(0, 16))
+                  cursor="hand2").pack(pady=(12, 16))
+
+    def _initiate_flash(self, key, dialog=None):
+        if dialog:
+            dialog.destroy()
+        entry = self._updates.get(key)
+        if not entry:
+            return
+        if not entry.get("path"):
+            tk.messagebox.showinfo("Bitte warten",
+                                   "Download läuft noch, kurz warten und nochmal versuchen.",
+                                   parent=self)
+            return
+
+        if key == "dongle":
+            port = self._port_var.get()
+            if port and SERIAL_OK:
+                self._log("Dongle Bootloader wird gestartet…", "info")
+                self._disconnect()
+                try:
+                    s = serial.Serial(port, 1200)
+                    s.close()
+                    self._log("1200bps Touch gesendet — warte auf Laufwerk…", "info")
+                except Exception as e:
+                    self._log(f"Bootloader-Start fehlgeschlagen: {e}", "err")
+            else:
+                tk.messagebox.showinfo(
+                    "Dongle Update",
+                    "Dongle nicht verbunden.\n\nBitte den Dongle doppelt resetten\n"
+                    "(Reset-Button 2× schnell drücken)\n"
+                    "dann erscheint er als Laufwerk und wird automatisch geflasht.",
+                    parent=self)
+        else:
+            tk.messagebox.showinfo(
+                "Headpat Update",
+                "Headpat per USB an den PC anschließen,\ndann den Reset-Button 2× schnell drücken.\n\n"
+                "Der Server erkennt das Gerät und flasht automatisch.",
+                parent=self)
 
     def _server_update(self, key):
         entry = self._updates.get(key)
