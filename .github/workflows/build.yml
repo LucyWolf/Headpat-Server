@@ -45,6 +45,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          name: Headpat Server ${{ github.ref_name }}
           files: dist_installer\*.exe
           generate_release_notes: true
 
@@ -114,4 +115,5 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          name: Headpat Server ${{ github.ref_name }}
           files: HeadpatServer-x86_64.AppImage
