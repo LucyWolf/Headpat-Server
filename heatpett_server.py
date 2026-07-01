@@ -241,15 +241,15 @@ class App(tk.Tk):
             return
 
         if len(fw) == 1:
-            key   = next(iter(fw))
-            entry = fw[key]
-            name  = "Headpat" if key == "headpat" else "Dongle"
+            key  = next(iter(fw))
+            name = "Headpat" if key == "headpat" else "Dongle"
+            tag  = fw[key]["tag"]
             if tk.messagebox.askyesno(
                 "Firmware Update",
-                f"{name} Update {entry['tag']} gefunden.\nJetzt flashen?",
+                f"{name} Update {tag} gefunden.\nJetzt flashen?",
                 parent=self
             ):
-                self._flash_uf2(key, drive)
+                self._flash_uf2_wait(key, drive)
         else:
             win = tk.Toplevel(self)
             win.title("Firmware Update")
@@ -261,7 +261,7 @@ class App(tk.Tk):
             for key, entry in fw.items():
                 name = "Headpat" if key == "headpat" else "Dongle"
                 def _do(k=key, w=win, d=drive):
-                    w.destroy(); self._flash_uf2(k, d)
+                    w.destroy(); self._flash_uf2_wait(k, d)
                 tk.Button(win, text=f"{name}  —  {entry['tag']}", command=_do,
                           bg=BG_BTN, fg=FG, activebackground=BG_BTN_A, bd=0,
                           relief="flat", font=("Segoe UI", 11), padx=16, pady=8,
@@ -271,15 +271,61 @@ class App(tk.Tk):
                       relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
                       cursor="hand2").pack(pady=(4, 16))
 
+    def _flash_uf2_wait(self, key, drive):
+        entry = self._updates.get(key)
+        if not entry:
+            return
+        if entry.get("path"):
+            self._flash_uf2(key, drive)
+            return
+        # UF2 noch nicht fertig heruntergeladen — Warte-Dialog zeigen
+        win = tk.Toplevel(self)
+        win.title("Herunterladen…")
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        win.grab_set()
+        tk.Frame(win, bg=ACCENT, height=2).pack(fill="x")
+        lbl = tk.Label(win, text="UF2 wird heruntergeladen…",
+                       bg=BG, fg=FG, font=("Segoe UI", 11), pady=16)
+        lbl.pack(padx=24)
+        dots = tk.Label(win, text="", bg=BG, fg=ACCENT,
+                        font=("Segoe UI", 11))
+        dots.pack(pady=(0, 16))
+
+        cancelled = [False]
+        def cancel():
+            cancelled[0] = True
+            win.destroy()
+        tk.Button(win, text="Abbrechen", command=cancel,
+                  bg=BG_TITLE, fg=FG_DIM, activebackground=BG_BTN,
+                  bd=0, relief="flat", font=("Segoe UI", 9), padx=10, pady=4,
+                  cursor="hand2").pack(pady=(0, 12))
+
+        def poll(n=0):
+            if cancelled[0]:
+                return
+            if not win.winfo_exists():
+                return
+            e = self._updates.get(key, {})
+            if e.get("path"):
+                win.destroy()
+                self._flash_uf2(key, drive)
+                return
+            if e.get("path") is None and not e:
+                win.destroy()
+                return
+            dots.config(text="●" * (n % 4 + 1))
+            win.after(500, lambda: poll(n + 1))
+
+        poll()
+
     def _flash_uf2(self, key, drive):
         entry = self._updates.get(key)
         if not entry or not entry.get("path"):
-            tk.messagebox.showerror(
-                "Warten", "Download läuft noch, bitte kurz warten.", parent=self)
             return
         try:
             dest = os.path.join(drive, "firmware.uf2")
-            shutil.copy2(entry["path"], dest)
+            shutil.copyfile(entry["path"], dest)
             name = "Headpat" if key == "headpat" else "Dongle"
             self._log(f"{name} {entry['tag']} geflasht — Gerät bootet neu", "info")
         except Exception as e:
