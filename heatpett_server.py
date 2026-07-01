@@ -93,6 +93,7 @@ class App(tk.Tk):
         self._drag_y        = 0
         self._logo_img      = None
         self._port_var       = tk.StringVar(value=self._cfg.get("port", ""))
+        self._board_var      = tk.StringVar(value=self._cfg.get("dongle_board", "nicenano"))
         self._settings_open  = False
         self._osc_verbose    = bool(self._cfg.get("osc_verbose", False))
         self._console_win    = None
@@ -141,7 +142,8 @@ class App(tk.Tk):
         asset_lin  = "HeadpatServer-x86_64.AppImage"
         checks = [
             ("headpat", HEADPAT_REPO, "headpat-firmware.uf2"),
-            ("dongle",  DONGLE_REPO,  "firmware.uf2"),
+            ("dongle",  DONGLE_REPO,
+             "dongle-nicenano.uf2" if self._board_var.get() == "nicenano" else "dongle-holyiot.uf2"),
             ("server",  SERVER_REPO,  asset_win if os.name == "nt" else asset_lin),
         ]
         for key, repo, asset_name in checks:
@@ -496,6 +498,7 @@ class App(tk.Tk):
             "auto_connect": self._ser is not None,
             "win_x":        self.winfo_x(),
             "win_y":        self.winfo_y(),
+            "dongle_board": self._board_var.get(),
         }
         try:
             os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -814,6 +817,19 @@ class App(tk.Tk):
                                    cursor="hand2")
         self._conn_btn.pack(side="left", padx=(10, 0))
 
+        # Dongle board selection
+        tk.Frame(ov, bg=BORDER, height=1).pack(fill="x", padx=12)
+        board_row = tk.Frame(ov, bg=BG_TITLE)
+        board_row.pack(fill="x", padx=16, pady=(8, 4))
+        tk.Label(board_row, text="Dongle-Board", bg=BG_TITLE, fg=FG_DIM,
+                 font=("Segoe UI", 9)).pack(side="left")
+        for val, label in (("nicenano", "nice!nano"), ("holyiot", "Holyiot nRF52840")):
+            tk.Radiobutton(board_row, text=label, variable=self._board_var, value=val,
+                           bg=BG_TITLE, fg=FG, selectcolor=BG, activebackground=BG_TITLE,
+                           activeforeground=ACCENT, font=("Segoe UI", 9),
+                           command=self._on_board_change
+                           ).pack(side="right", padx=6)
+
         # Version info
         tk.Frame(ov, bg=BORDER, height=1).pack(fill="x", padx=12)
         ver_frame = tk.Frame(ov, bg=BG_TITLE)
@@ -830,6 +846,11 @@ class App(tk.Tk):
                      font=("Segoe UI", 10)).pack(side="left")
             tk.Label(r, textvariable=var, bg=BG_TITLE, fg=color,
                      font=("Segoe UI", 10, "bold")).pack(side="right")
+
+    def _on_board_change(self):
+        self._updates.pop("dongle", None)  # force re-check with new asset name
+        self._save_config()
+        threading.Thread(target=self._check_all_releases, daemon=True).start()
 
     def _open_settings(self, event=None):
         if self._settings_open:
