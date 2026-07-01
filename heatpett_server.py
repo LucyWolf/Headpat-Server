@@ -143,7 +143,7 @@ class App(tk.Tk):
         checks = [
             ("headpat", HEADPAT_REPO, "headpat-firmware.uf2"),
             ("dongle",  DONGLE_REPO,
-             "dongle-nicenano.uf2" if self._board_var.get() == "nicenano" else "dongle-holyiot.uf2"),
+             "dongle-pro-micro-nrf52840.uf2" if self._board_var.get() == "nicenano" else "dongle-holyiot-nrf52840.uf2"),
             ("server",  SERVER_REPO,  asset_win if os.name == "nt" else asset_lin),
         ]
         for key, repo, asset_name in checks:
@@ -823,7 +823,7 @@ class App(tk.Tk):
         board_row.pack(fill="x", padx=16, pady=(8, 4))
         tk.Label(board_row, text="Dongle-Board", bg=BG_TITLE, fg=FG_DIM,
                  font=("Segoe UI", 9)).pack(side="left")
-        for val, label in (("nicenano", "nice!nano"), ("holyiot", "Holyiot nRF52840")):
+        for val, label in (("nicenano", "Pro Micro nRF52840"), ("holyiot", "Holyiot nRF52840")):
             tk.Radiobutton(board_row, text=label, variable=self._board_var, value=val,
                            bg=BG_TITLE, fg=FG, selectcolor=BG, activebackground=BG_TITLE,
                            activeforeground=ACCENT, font=("Segoe UI", 9),
