@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.8.4"
+SERVER_VERSION  = "v2.8.5"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -904,6 +904,7 @@ class App(tk.Tk):
         _mkc(r2, "Remove", "remove", YELLOW)
         _mkc(r2, "Clear",  "clear",  RED)
         _mkc(r2, "Reboot", "reboot", FG_DIM)
+        _mkc(r2, "DFU",    "dfu",    FG_DIM)
 
         # ── Versionen ──
         sep()
