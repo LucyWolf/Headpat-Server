@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.7.6"
+SERVER_VERSION  = "v2.7.7"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -422,14 +422,19 @@ class App(tk.Tk):
             dest = os.path.join(downloads, "HeadpatServer-Setup.exe")
             try:
                 shutil.copyfile(src, dest)
-                os.startfile(dest)
+                subprocess.Popen(["explorer", f"/select,{dest}"])
+                tk.messagebox.showinfo(
+                    "Update bereit",
+                    f"Installer wurde in Downloads gespeichert.\n\n"
+                    f"Bitte doppelklicke auf:\n{os.path.basename(dest)}",
+                    parent=self)
             except Exception as e:
                 tk.messagebox.showerror("Update-Fehler", str(e), parent=self)
                 return
         else:
             os.chmod(src, 0o755)
             subprocess.Popen([src])
-        self.after(500, self._on_close)
+            self.after(500, self._on_close)
 
     # ── Taskbar icon ──────────────────────────────────────────────────────────
     def _fix_taskbar(self):
