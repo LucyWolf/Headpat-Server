@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.8.6"
+SERVER_VERSION  = "v2.8.7"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -368,14 +368,10 @@ class App(tk.Tk):
         for key, entry in self._updates.items():
             row = tk.Frame(win, bg=BG)
             row.pack(fill="x", padx=20, pady=4)
-            ready = bool(entry.get("path"))
-            tk.Label(row, text="✓" if ready else "⟳", bg=BG,
-                     fg=GREEN if ready else YELLOW,
-                     font=("Segoe UI", 10)).pack(side="right")
             if key == "server":
-                tk.Button(row, text="Installieren",
+                tk.Button(row, text="Update →",
                           command=lambda k=key, w=win: (w.destroy(), self._server_update(k)),
-                          bg=BG_BTN, fg=FG, activebackground=BG_BTN_A, bd=0,
+                          bg=BG_BTN, fg=ACCENT, activebackground=BG_BTN_A, bd=0,
                           relief="flat", font=("Segoe UI", 9), padx=8, pady=4,
                           cursor="hand2").pack(side="right", padx=(4, 6))
             else:
