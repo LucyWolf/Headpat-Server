@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.9.1"
+SERVER_VERSION  = "v2.9.2"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -882,6 +882,12 @@ class App(tk.Tk):
         ttk.Combobox(conn_row, textvariable=self._port_var,
                      values=ports, width=10, style="P.TCombobox").pack(side="left")
 
+        tk.Button(conn_row, text="Suchen",
+                  command=self._search_dongle_port,
+                  bg=BG_BTN, fg=FG_DIM, activebackground=BG_BTN_A, activeforeground=FG,
+                  bd=0, relief="flat", font=("Segoe UI", 10),
+                  padx=10, pady=6, cursor="hand2").pack(side="left", padx=(6, 0))
+
         is_connected = self._ser is not None
         tk.Button(conn_row,
                   text="Disconnect" if is_connected else "Connect",
@@ -968,6 +974,31 @@ class App(tk.Tk):
         if ports and not self._port_var.get():
             self._port_var.set(ports[0])
 
+    def _auto_find_dongle_port(self):
+        ports = [p.device for p in serial.tools.list_ports.comports()]
+        for port in ports:
+            try:
+                with serial.Serial(port, BAUD, timeout=0.5) as s:
+                    s.write(b"info\n")
+                    time.sleep(0.4)
+                    resp = s.read(s.in_waiting).decode(errors="ignore")
+                if "Headpat Dongle" in resp:
+                    return port
+            except Exception:
+                pass
+        return None
+
+    def _search_dongle_port(self):
+        self._log("Suche Headpat Dongle…", "info")
+        def _run():
+            port = self._auto_find_dongle_port()
+            if port:
+                self._port_var.set(port)
+                self._log(f"Dongle gefunden: {port}", "info")
+            else:
+                self._log("Kein Headpat Dongle gefunden", "warn")
+        threading.Thread(target=_run, daemon=True).start()
+
     def _toggle_serial(self):
         if self._ser:
             self._disconnect()
@@ -976,8 +1007,15 @@ class App(tk.Tk):
 
     def _connect(self):
         port = self._port_var.get()
-        if not port or not SERIAL_OK:
+        if not SERIAL_OK:
             return
+        if not port:
+            port = self._auto_find_dongle_port()
+            if port:
+                self._port_var.set(port)
+            else:
+                self._log("Kein Headpat Dongle gefunden — Port manuell auswählen", "warn")
+                return
         try:
             ser = serial.Serial(port, BAUD, timeout=1)
             with self._ser_lock:
