@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.9.5"
+SERVER_VERSION  = "v2.9.6"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -72,6 +72,78 @@ if os.name == "nt":
 else:
     CONFIG_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(os.path.expanduser("~"), ".config")), "HeadpatServer")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
+
+# ── i18n ──────────────────────────────────────────────────────────────────────
+TRANSLATIONS = {
+    "de": {
+        "settings_title": "Einstellungen",
+        "sec_connection": "Verbindung",
+        "sec_board": "Dongle-Board",
+        "sec_commands": "Dongle Befehle",
+        "sec_versions": "Versionen",
+        "sec_hp_drive": "Headpat Laufwerk",
+        "sec_language": "Sprache",
+        "btn_search": "Suchen",
+        "btn_check_updates": "Jetzt auf Updates prüfen",
+        "hp_drive_hint": "Nur nötig für Firmware-Updates",
+        "lbl_no_drive": "Kein Laufwerk erkannt",
+        "btn_refresh": "Aktualisieren",
+        "lang_restart": "→ Neustart erforderlich",
+        "upd_available": "Verfügbare Updates",
+        "upd_usb_hint": "Dongle & Headpat müssen per USB\nmit dem PC verbunden sein.",
+        "upd_all_ok": "Alles aktuell.",
+        "btn_close": "Schließen",
+        "btn_update": "Update →",
+        "btn_flash": "Flashen →",
+        "hp_flash_title": "Headpat Update",
+        "hp_flash_hint": "Headpat per USB anschließen,\ndann den Reset-Button 2× schnell drücken.",
+        "lbl_drive": "Laufwerk:",
+        "waiting_device": "Warte auf Gerät…",
+        "drives_found": "{n} Laufwerk(e) gefunden",
+        "btn_cancel": "Abbrechen",
+        "downloading": "UF2 wird heruntergeladen…",
+    },
+    "en": {
+        "settings_title": "Settings",
+        "sec_connection": "Connection",
+        "sec_board": "Dongle Board",
+        "sec_commands": "Dongle Commands",
+        "sec_versions": "Versions",
+        "sec_hp_drive": "Headpat Drive",
+        "sec_language": "Language",
+        "btn_search": "Search",
+        "btn_check_updates": "Check for Updates Now",
+        "hp_drive_hint": "Only needed for firmware updates",
+        "lbl_no_drive": "No drive detected",
+        "btn_refresh": "Refresh",
+        "lang_restart": "→ Restart required",
+        "upd_available": "Available Updates",
+        "upd_usb_hint": "Dongle & Headpat must be connected\nvia USB for firmware updates.",
+        "upd_all_ok": "Everything up to date.",
+        "btn_close": "Close",
+        "btn_update": "Update →",
+        "btn_flash": "Flash →",
+        "hp_flash_title": "Headpat Update",
+        "hp_flash_hint": "Connect Headpat via USB,\nthen double-press the reset button.",
+        "lbl_drive": "Drive:",
+        "waiting_device": "Waiting for device…",
+        "drives_found": "{n} drive(s) found",
+        "btn_cancel": "Cancel",
+        "downloading": "Downloading UF2…",
+    },
+}
+
+_LANG = "de"
+try:
+    with open(CONFIG_PATH, "r", encoding="utf-8") as _f:
+        _LANG = json.load(_f).get("lang", "de")
+except Exception:
+    pass
+
+
+def _t(key, **kwargs):
+    text = TRANSLATIONS.get(_LANG, TRANSLATIONS["de"]).get(key, TRANSLATIONS["de"].get(key, key))
+    return text.format(**kwargs) if kwargs else text
 
 
 class App(tk.Tk):
@@ -94,6 +166,7 @@ class App(tk.Tk):
         self._logo_img      = None
         self._port_var       = tk.StringVar(value=self._cfg.get("port", ""))
         self._board_var      = tk.StringVar(value=self._cfg.get("dongle_board", "nicenano"))
+        self._lang_var       = tk.StringVar(value=self._cfg.get("lang", "de"))
         self._settings_open  = False
         self._settings_win   = None
         self._osc_verbose    = bool(self._cfg.get("osc_verbose", False))
@@ -305,7 +378,7 @@ class App(tk.Tk):
         win.resizable(False, False)
         win.grab_set()
         tk.Frame(win, bg=ACCENT, height=2).pack(fill="x")
-        lbl = tk.Label(win, text="UF2 wird heruntergeladen…",
+        lbl = tk.Label(win, text=_t("downloading"),
                        bg=BG, fg=FG, font=("Segoe UI", 11), pady=16)
         lbl.pack(padx=24)
         dots = tk.Label(win, text="", bg=BG, fg=ACCENT,
@@ -360,9 +433,9 @@ class App(tk.Tk):
         win.configure(bg=BG)
         win.resizable(False, False)
         tk.Frame(win, bg=ACCENT, height=2).pack(fill="x")
-        tk.Label(win, text="Verfügbare Updates", bg=BG, fg=FG,
+        tk.Label(win, text=_t("upd_available"), bg=BG, fg=FG,
                  font=("Segoe UI", 12, "bold"), pady=12).pack(padx=20)
-        tk.Label(win, text="Dongle & Headpat müssen per USB\nmit dem PC verbunden sein.",
+        tk.Label(win, text=_t("upd_usb_hint"),
                  bg=BG, fg=FG_DIM, font=("Segoe UI", 9), justify="center").pack(padx=20, pady=(0, 8))
 
         labels = {"headpat": "Headpat Firmware", "dongle": "Dongle Firmware", "server": "Server"}
@@ -371,13 +444,13 @@ class App(tk.Tk):
                 row = tk.Frame(win, bg=BG)
                 row.pack(fill="x", padx=20, pady=4)
                 if key == "server":
-                    tk.Button(row, text="Update →",
+                    tk.Button(row, text=_t("btn_update"),
                               command=lambda k=key, w=win: (w.destroy(), self._server_update(k)),
                               bg=BG_BTN, fg=ACCENT, activebackground=BG_BTN_A, bd=0,
                               relief="flat", font=("Segoe UI", 9), padx=8, pady=4,
                               cursor="hand2").pack(side="right", padx=(4, 6))
                 else:
-                    tk.Button(row, text="Flashen →",
+                    tk.Button(row, text=_t("btn_flash"),
                               command=lambda k=key, w=win: self._initiate_flash(k, w),
                               bg=BG_BTN, fg=ACCENT, activebackground=BG_BTN_A, bd=0,
                               relief="flat", font=("Segoe UI", 9), padx=8, pady=4,
@@ -387,7 +460,7 @@ class App(tk.Tk):
                 tk.Label(row, text=labels.get(key, key), bg=BG, fg=FG,
                          font=("Segoe UI", 10)).pack(side="left")
         else:
-            tk.Label(win, text="Alles aktuell.", bg=BG, fg=FG_DIM,
+            tk.Label(win, text=_t("upd_all_ok"), bg=BG, fg=FG_DIM,
                      font=("Segoe UI", 10), pady=12).pack()
 
         def _refresh():
@@ -400,11 +473,11 @@ class App(tk.Tk):
 
         bottom = tk.Frame(win, bg=BG)
         bottom.pack(fill="x", padx=20, pady=(8, 16))
-        tk.Button(bottom, text="Aktualisieren", command=_refresh,
+        tk.Button(bottom, text=_t("btn_refresh"), command=_refresh,
                   bg=BG_BTN, fg=FG, activebackground=BG_BTN_A, bd=0,
                   relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
                   cursor="hand2").pack(side="left")
-        tk.Button(bottom, text="Schließen", command=win.destroy,
+        tk.Button(bottom, text=_t("btn_close"), command=win.destroy,
                   bg=BG_TITLE, fg=FG_DIM, activebackground=BG_BTN, bd=0,
                   relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
                   cursor="hand2").pack(side="right")
@@ -442,12 +515,68 @@ class App(tk.Tk):
                     "damit der Dongle als Laufwerk erscheint.",
                     parent=self)
         else:
+            self._open_headpat_flash_dialog()
+
+    def _open_headpat_flash_dialog(self):
+        win = tk.Toplevel(self)
+        win.title(_t("hp_flash_title"))
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        win.grab_set()
+        tk.Frame(win, bg=ACCENT, height=2).pack(fill="x")
+        tk.Label(win, text=_t("hp_flash_title"), bg=BG, fg=FG,
+                 font=("Segoe UI", 12, "bold"), pady=12).pack(padx=20)
+        tk.Label(win, text=_t("hp_flash_hint"),
+                 bg=BG, fg=FG_DIM, font=("Segoe UI", 10), justify="center").pack(padx=20, pady=(0, 14))
+
+        drive_row = tk.Frame(win, bg=BG)
+        drive_row.pack(fill="x", padx=20, pady=(0, 6))
+        tk.Label(drive_row, text=_t("lbl_drive"), bg=BG, fg=FG_DIM,
+                 font=("Segoe UI", 10)).pack(side="left")
+
+        drive_var = tk.StringVar()
+        s = ttk.Style(); s.theme_use("clam")
+        combo = ttk.Combobox(drive_row, textvariable=drive_var,
+                              width=10, style="P.TCombobox", state="readonly")
+        combo.pack(side="left", padx=(8, 0))
+
+        status_lbl = tk.Label(win, text=_t("waiting_device"), bg=BG, fg=YELLOW,
+                              font=("Segoe UI", 9))
+        status_lbl.pack(pady=(0, 10))
+
+        def _refresh():
+            if not win.winfo_exists():
+                return
+            drives = sorted(self._find_nrf52_drives())
+            combo["values"] = drives
+            if drives:
+                if not drive_var.get() or drive_var.get() not in drives:
+                    drive_var.set(drives[0])
+                status_lbl.config(text=_t("drives_found", n=len(drives)), fg=GREEN)
+            else:
+                status_lbl.config(text=_t("waiting_device"), fg=YELLOW)
+            win.after(1200, _refresh)
+
+        win.after(200, _refresh)
+
+        def _do_flash():
+            drive = drive_var.get()
+            if not drive:
+                return
+            win.destroy()
             self._pending_flash = "headpat"
-            tk.messagebox.showinfo(
-                "Headpat Update",
-                "Headpat per USB an den PC anschließen,\ndann den Reset-Button 2× schnell drücken.\n\n"
-                "Der Server erkennt das Gerät und flasht automatisch.",
-                parent=self)
+            self._flash_uf2_wait("headpat", drive)
+
+        btn_row = tk.Frame(win, bg=BG)
+        btn_row.pack(fill="x", padx=20, pady=(4, 16))
+        tk.Button(btn_row, text=_t("btn_cancel"), command=win.destroy,
+                  bg=BG_TITLE, fg=FG_DIM, activebackground=BG_BTN, bd=0,
+                  relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
+                  cursor="hand2").pack(side="left")
+        tk.Button(btn_row, text=_t("btn_flash"), command=_do_flash,
+                  bg=BG_BTN, fg=ACCENT, activebackground=BG_BTN_A, bd=0,
+                  relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
+                  cursor="hand2").pack(side="right")
 
     def _server_update(self, key):
         entry = self._updates.get(key)
@@ -557,6 +686,7 @@ class App(tk.Tk):
             "win_x":        self.winfo_x(),
             "win_y":        self.winfo_y(),
             "dongle_board": self._board_var.get(),
+            "lang":         self._lang_var.get(),
         }
         try:
             os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -868,7 +998,7 @@ class App(tk.Tk):
         win.geometry(f"+{x}+{y}")
 
         tk.Frame(win, bg=ACCENT, height=2).pack(fill="x")
-        tk.Label(win, text="Einstellungen", bg=BG_TITLE, fg=FG,
+        tk.Label(win, text=_t("settings_title"), bg=BG_TITLE, fg=FG,
                  font=("Segoe UI", 12, "bold"), pady=14).pack(padx=20, anchor="w")
 
         def sep(): tk.Frame(win, bg=BORDER, height=1).pack(fill="x", padx=12)
@@ -877,7 +1007,7 @@ class App(tk.Tk):
 
         # ── Verbindung ──
         sep()
-        sec("Verbindung")
+        sec(_t("sec_connection"))
         conn_row = tk.Frame(win, bg=BG_TITLE)
         conn_row.pack(fill="x", padx=16, pady=(0, 14))
 
@@ -899,7 +1029,7 @@ class App(tk.Tk):
         ttk.Combobox(conn_row, textvariable=self._port_var,
                      values=ports, width=10, style="P.TCombobox").pack(side="left")
 
-        tk.Button(conn_row, text="Suchen",
+        tk.Button(conn_row, text=_t("btn_search"),
                   command=self._search_dongle_port,
                   bg=BG_BTN, fg=FG_DIM, activebackground=BG_BTN_A, activeforeground=FG,
                   bd=0, relief="flat", font=("Segoe UI", 10),
@@ -916,7 +1046,7 @@ class App(tk.Tk):
 
         # ── Dongle-Board ──
         sep()
-        sec("Dongle-Board")
+        sec(_t("sec_board"))
         board_row = tk.Frame(win, bg=BG_TITLE)
         board_row.pack(fill="x", padx=16, pady=(0, 14))
         for val, label in (("nicenano", "Pro Micro nRF52840"), ("holyiot", "Holyiot nRF52840")):
@@ -928,7 +1058,7 @@ class App(tk.Tk):
 
         # ── Dongle Befehle ──
         sep()
-        sec("Dongle Befehle")
+        sec(_t("sec_commands"))
 
         def _mkc(parent, text, cmd, color=FG):
             tk.Button(parent, text=text, command=lambda: self._send_cmd(cmd),
@@ -952,7 +1082,7 @@ class App(tk.Tk):
 
         # ── Versionen ──
         sep()
-        sec("Versionen")
+        sec(_t("sec_versions"))
         ver_frame = tk.Frame(win, bg=BG_TITLE)
         ver_frame.pack(fill="x", padx=16, pady=(0, 18))
         for label, var, color in [
@@ -967,11 +1097,58 @@ class App(tk.Tk):
             tk.Label(r, textvariable=var, bg=BG_TITLE, fg=color,
                      font=("Segoe UI", 10, "bold")).pack(side="right")
 
+        # ── Headpat Laufwerk ──
+        sep()
+        sec(_t("sec_hp_drive"))
+        hp_drive_frame = tk.Frame(win, bg=BG_TITLE)
+        hp_drive_frame.pack(fill="x", padx=16, pady=(0, 4))
+        hp_drives_var = tk.StringVar()
+        hp_combo = ttk.Combobox(hp_drive_frame, textvariable=hp_drives_var,
+                                width=12, style="P.TCombobox", state="readonly")
+        hp_combo.pack(side="left")
+
+        def _refresh_hp_drives():
+            drives = sorted(self._find_nrf52_drives())
+            hp_combo["values"] = drives
+            if drives:
+                if not hp_drives_var.get() or hp_drives_var.get() not in drives:
+                    hp_drives_var.set(drives[0])
+            else:
+                hp_drives_var.set("")
+
+        tk.Button(hp_drive_frame, text=_t("btn_refresh"),
+                  command=_refresh_hp_drives,
+                  bg=BG_BTN, fg=FG_DIM, activebackground=BG_BTN_A,
+                  bd=0, relief="flat", font=("Segoe UI", 10),
+                  padx=10, pady=6, cursor="hand2").pack(side="left", padx=(6, 0))
+        _refresh_hp_drives()
+        tk.Label(win, text=_t("hp_drive_hint"), bg=BG_TITLE, fg=FG_DIM,
+                 font=("Segoe UI", 8), pady=0).pack(anchor="w", padx=16, pady=(0, 10))
+
+        # ── Sprache ──
+        sep()
+        sec(_t("sec_language"))
+        lang_row = tk.Frame(win, bg=BG_TITLE)
+        lang_row.pack(fill="x", padx=16, pady=(0, 4))
+        lang_combo = ttk.Combobox(lang_row, textvariable=self._lang_var,
+                                  values=["de", "en"], width=6,
+                                  style="P.TCombobox", state="readonly")
+        lang_combo.pack(side="left")
+        lang_restart_lbl = tk.Label(lang_row, text="", bg=BG_TITLE, fg=YELLOW,
+                                    font=("Segoe UI", 9))
+        lang_restart_lbl.pack(side="left", padx=(10, 0))
+
+        def _on_lang_change(*_):
+            self._save_config()
+            lang_restart_lbl.config(text=_t("lang_restart"))
+
+        self._lang_var.trace_add("write", _on_lang_change)
+
         sep()
         def _check_now():
             threading.Thread(target=self._check_all_releases, daemon=True).start()
             self._log("Suche nach Updates…", "info")
-        tk.Button(win, text="Jetzt auf Updates prüfen",
+        tk.Button(win, text=_t("btn_check_updates"),
                   command=_check_now,
                   bg=BG_BTN, fg=FG, activebackground=BG_BTN_A,
                   bd=0, relief="flat", font=("Segoe UI", 10),
