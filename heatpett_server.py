@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.8.5"
+SERVER_VERSION  = "v2.8.6"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -159,6 +159,12 @@ class App(tk.Tk):
                     continue
                 if key == "server" and self._parse_ver(tag) <= self._parse_ver(SERVER_VERSION):
                     continue
+                if key == "dongle" and self._dongle_version != "?" and \
+                        self._parse_ver(tag) <= self._parse_ver(self._dongle_version):
+                    continue
+                if key == "headpat" and self._hp_version != "?" and \
+                        self._parse_ver(tag) <= self._parse_ver(self._hp_version):
+                    continue
                 self._updates[key] = {"tag": tag, "url": assets[asset_name],
                                       "asset": asset_name, "path": None}
                 self._q.put(("update_found", (key, tag)))
@@ -174,6 +180,19 @@ class App(tk.Tk):
 
     def _parse_ver(self, tag):
         return tuple(int(x) for x in re.findall(r'\d+', tag))
+
+    def _recheck_firmware_updates(self):
+        changed = False
+        for key, cur in (("dongle", self._dongle_version), ("headpat", self._hp_version)):
+            if key in self._updates and cur != "?":
+                if self._parse_ver(self._updates[key]["tag"]) <= self._parse_ver(cur):
+                    del self._updates[key]
+                    changed = True
+        if changed and self._badge_lbl:
+            if self._updates:
+                self._badge_lbl.pack(side="right", padx=(0, 2))
+            else:
+                self._badge_lbl.pack_forget()
 
     def _prefetch(self, key):
         entry = self._updates.get(key)
@@ -1145,9 +1164,11 @@ class App(tk.Tk):
                 elif tag == "hp_ver":
                     self._hp_version = val
                     self._hp_ver_var.set(val)
+                    self._recheck_firmware_updates()
                 elif tag == "dongle_ver":
                     self._dongle_version = val
                     self._dongle_ver_var.set(val)
+                    self._recheck_firmware_updates()
                 elif tag == "serial_lost":
                     self._disconnect()
                 elif tag == "update_found":
