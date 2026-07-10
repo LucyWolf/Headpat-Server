@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.7.5"
+SERVER_VERSION  = "v2.7.6"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -416,10 +416,19 @@ class App(tk.Tk):
             tk.messagebox.showinfo("Bitte warten", "Download läuft noch...", parent=self)
             return
         import subprocess
-        path = entry["path"]
-        if os.name != "nt":
-            os.chmod(path, 0o755)
-        subprocess.Popen([path])
+        src = entry["path"]
+        if os.name == "nt":
+            downloads = os.path.join(os.path.expanduser("~"), "Downloads")
+            dest = os.path.join(downloads, "HeadpatServer-Setup.exe")
+            try:
+                shutil.copyfile(src, dest)
+                os.startfile(dest)
+            except Exception as e:
+                tk.messagebox.showerror("Update-Fehler", str(e), parent=self)
+                return
+        else:
+            os.chmod(src, 0o755)
+            subprocess.Popen([src])
         self.after(500, self._on_close)
 
     # ── Taskbar icon ──────────────────────────────────────────────────────────
@@ -838,6 +847,30 @@ class App(tk.Tk):
                            command=self._on_board_change
                            ).pack(side="right", padx=6)
 
+        # Dongle commands
+        tk.Frame(ov, bg=BORDER, height=1).pack(fill="x", padx=12)
+        tk.Label(ov, text="Dongle Befehle", bg=BG_TITLE, fg=FG_DIM,
+                 font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(8, 4))
+        cmd_row1 = tk.Frame(ov, bg=BG_TITLE)
+        cmd_row1.pack(fill="x", padx=16, pady=(0, 4))
+        cmd_row2 = tk.Frame(ov, bg=BG_TITLE)
+        cmd_row2.pack(fill="x", padx=16, pady=(0, 8))
+
+        def _mkc(parent, text, cmd, color=FG):
+            b = tk.Button(parent, text=text, command=lambda: self._send_cmd(cmd),
+                          bg=BG_BTN, fg=color, activebackground=BG_BTN_A,
+                          activeforeground=FG, bd=0, relief="flat",
+                          font=("Segoe UI", 9), padx=10, pady=5, cursor="hand2")
+            b.pack(side="left", padx=(0, 6))
+            return b
+
+        _mkc(cmd_row1, "Pairing",  "pairing", ACCENT)
+        _mkc(cmd_row1, "List",     "list")
+        _mkc(cmd_row1, "Uptime",   "uptime")
+        _mkc(cmd_row2, "Remove",   "remove",  YELLOW)
+        _mkc(cmd_row2, "Clear",    "clear",   RED)
+        _mkc(cmd_row2, "Reboot",   "reboot",  FG_DIM)
+
         # Version info
         tk.Frame(ov, bg=BORDER, height=1).pack(fill="x", padx=12)
         ver_frame = tk.Frame(ov, bg=BG_TITLE)
@@ -854,6 +887,18 @@ class App(tk.Tk):
                      font=("Segoe UI", 10)).pack(side="left")
             tk.Label(r, textvariable=var, bg=BG_TITLE, fg=color,
                      font=("Segoe UI", 10, "bold")).pack(side="right")
+
+    def _send_cmd(self, cmd: str):
+        with self._ser_lock:
+            ser = self._ser
+        if ser:
+            try:
+                ser.write(f"{cmd}\n".encode())
+                self._log(f"→ {cmd}", "info")
+            except Exception as e:
+                self._log(f"Fehler: {e}", "err")
+        else:
+            self._log("Dongle nicht verbunden", "warn")
 
     def _on_board_change(self):
         self._updates.pop("dongle", None)  # force re-check with new asset name
