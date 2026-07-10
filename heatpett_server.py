@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.7.8"
+SERVER_VERSION  = "v2.7.9"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -830,7 +830,7 @@ class App(tk.Tk):
         self.update_idletasks()
         x = self.winfo_x() + self.winfo_width() + 8
         y = self.winfo_y()
-        win.geometry(f"340+{x}+{y}")
+        win.geometry(f"+{x}+{y}")
 
         tk.Frame(win, bg=ACCENT, height=2).pack(fill="x")
         tk.Label(win, text="Einstellungen", bg=BG_TITLE, fg=FG,
