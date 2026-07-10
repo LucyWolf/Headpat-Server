@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.9.0"
+SERVER_VERSION  = "v2.9.1"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -425,6 +425,7 @@ class App(tk.Tk):
                     "damit der Dongle als Laufwerk erscheint.",
                     parent=self)
         else:
+            self._pending_flash = "headpat"
             tk.messagebox.showinfo(
                 "Headpat Update",
                 "Headpat per USB an den PC anschließen,\ndann den Reset-Button 2× schnell drücken.\n\n"
