@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.8.7"
+SERVER_VERSION  = "v2.8.8"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -108,6 +108,7 @@ class App(tk.Tk):
         self._updates        = {}   # "headpat"|"dongle"|"server" -> {tag, url, asset, path}
         self._known_drives   = set()
         self._badge_lbl      = None
+        self._pending_flash  = None
 
         self._load_icon()
         self._build()
@@ -262,23 +263,20 @@ class App(tk.Tk):
             self._log("Kein Firmware-Update verfügbar", "warn")
             return
 
+        # Use pending flash key if set (triggered by _initiate_flash)
+        if self._pending_flash and self._pending_flash in fw:
+            self._flash_uf2_wait(self._pending_flash, drive)
+            return
+
         if len(fw) == 1:
-            key  = next(iter(fw))
-            name = "Headpat" if key == "headpat" else "Dongle"
-            tag  = fw[key]["tag"]
-            if tk.messagebox.askyesno(
-                "Firmware Update",
-                f"{name} Update {tag} gefunden.\nJetzt flashen?",
-                parent=self
-            ):
-                self._flash_uf2_wait(key, drive)
+            self._flash_uf2_wait(next(iter(fw)), drive)
         else:
             win = tk.Toplevel(self)
             win.title("Firmware Update")
             win.configure(bg=BG)
             win.resizable(False, False)
             win.grab_set()
-            tk.Label(win, text="NRF52-Laufwerk erkannt.\nWelches Gerät flashen?",
+            tk.Label(win, text="Welches Gerät flashen?",
                      bg=BG, fg=FG, font=("Segoe UI", 11), pady=12).pack(padx=20)
             for key, entry in fw.items():
                 name = "Headpat" if key == "headpat" else "Dongle"
@@ -345,11 +343,14 @@ class App(tk.Tk):
         entry = self._updates.get(key)
         if not entry or not entry.get("path"):
             return
+        self._pending_flash = None
         try:
             dest = os.path.join(drive, "firmware.uf2")
             shutil.copyfile(entry["path"], dest)
             name = "Headpat" if key == "headpat" else "Dongle"
             self._log(f"{name} {entry['tag']} geflasht — Gerät bootet neu", "info")
+            if key == "dongle":
+                self.after(4000, self._connect)
         except Exception as e:
             tk.messagebox.showerror("Flash-Fehler", str(e), parent=self)
 
@@ -406,10 +407,12 @@ class App(tk.Tk):
                 ser = self._ser
             if ser:
                 try:
+                    self._pending_flash = "dongle"
                     ser.write(b"dfu\n")
                     self._log("DFU-Befehl gesendet — Dongle startet Bootloader…", "info")
                     self.after(500, self._disconnect)
                 except Exception as e:
+                    self._pending_flash = None
                     self._log(f"DFU-Befehl fehlgeschlagen: {e}", "err")
             else:
                 tk.messagebox.showinfo(
