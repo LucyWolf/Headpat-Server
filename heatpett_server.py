@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.8.8"
+SERVER_VERSION  = "v2.8.9"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -940,6 +940,16 @@ class App(tk.Tk):
                      font=("Segoe UI", 10)).pack(side="left")
             tk.Label(r, textvariable=var, bg=BG_TITLE, fg=color,
                      font=("Segoe UI", 10, "bold")).pack(side="right")
+
+        sep()
+        def _check_now():
+            threading.Thread(target=self._check_all_releases, daemon=True).start()
+            self._log("Suche nach Updates…", "info")
+        tk.Button(win, text="Jetzt auf Updates prüfen",
+                  command=_check_now,
+                  bg=BG_BTN, fg=FG, activebackground=BG_BTN_A,
+                  bd=0, relief="flat", font=("Segoe UI", 10),
+                  padx=12, pady=7, cursor="hand2").pack(padx=16, pady=14, fill="x")
 
     def _close_settings(self):
         self._settings_open = False
