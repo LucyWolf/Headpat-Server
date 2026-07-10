@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.7.7"
+SERVER_VERSION  = "v2.7.8"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -95,6 +95,7 @@ class App(tk.Tk):
         self._port_var       = tk.StringVar(value=self._cfg.get("port", ""))
         self._board_var      = tk.StringVar(value=self._cfg.get("dongle_board", "nicenano"))
         self._settings_open  = False
+        self._settings_win   = None
         self._osc_verbose    = bool(self._cfg.get("osc_verbose", False))
         self._console_win    = None
         self._console_text   = None
@@ -662,9 +663,6 @@ class App(tk.Tk):
         self._mkbtn(test_row, "R", self._pat_right).pack(side="right")
         self._mkbtn(test_row, "L", self._pat_left).pack(side="right", padx=(0, 10))
 
-        # ── Settings overlay (hidden by default) ──────────────────────────────
-        self._overlay = tk.Frame(self, bg=BG_TITLE)
-        self._build_overlay()
 
     # ── Helpers ───────────────────────────────────────────────────────────────
     def _dot(self, parent, color):
@@ -798,101 +796,7 @@ class App(tk.Tk):
             self._console_text.config(state="disabled")
         self._log_buf.clear()
 
-    # ── Settings overlay ──────────────────────────────────────────────────────
-    def _build_overlay(self):
-        ov = self._overlay
-
-        tk.Frame(ov, bg=ACCENT, height=2).pack(fill="x")
-
-        title_row = tk.Frame(ov, bg=BG_TITLE)
-        title_row.pack(fill="x", padx=16, pady=(12, 4))
-        tk.Label(title_row, text="Einstellungen", bg=BG_TITLE, fg=FG_DIM,
-                 font=("Segoe UI", 9)).pack(side="left")
-        x_lbl = tk.Label(title_row, text="×", bg=BG_TITLE, fg=FG_DIM,
-                         font=("Segoe UI", 14), cursor="hand2")
-        x_lbl.pack(side="right")
-        x_lbl.bind("<Button-1>", lambda _: self._close_settings())
-
-        # Port + connect row
-        row = tk.Frame(ov, bg=BG_TITLE)
-        row.pack(fill="x", padx=16, pady=(4, 12))
-
-        s = ttk.Style()
-        s.theme_use("clam")
-        s.configure("P.TCombobox", fieldbackground=BG, background=BG,
-                    foreground=FG, selectbackground="#1e2028",
-                    selectforeground=FG, arrowcolor=ACCENT, bordercolor=BORDER,
-                    insertcolor=FG)
-        s.map("P.TCombobox",
-              fieldbackground=[("focus", BG), ("!focus", BG)],
-              foreground=[("focus", FG), ("!focus", FG)],
-              background=[("active", BG), ("!active", BG)])
-
-        self._port_cb = ttk.Combobox(row, textvariable=self._port_var,
-                                     width=10, style="P.TCombobox")
-        self._port_cb.pack(side="left")
-
-        self._conn_btn = tk.Button(row, text="Connect", command=self._toggle_serial,
-                                   bg=BG_BTN, fg=ACCENT, activebackground=BG_BTN_A,
-                                   activeforeground=FG, bd=0, relief="flat",
-                                   font=("Segoe UI", 10), padx=12, pady=6,
-                                   cursor="hand2")
-        self._conn_btn.pack(side="left", padx=(10, 0))
-
-        # Dongle board selection
-        tk.Frame(ov, bg=BORDER, height=1).pack(fill="x", padx=12)
-        board_row = tk.Frame(ov, bg=BG_TITLE)
-        board_row.pack(fill="x", padx=16, pady=(8, 4))
-        tk.Label(board_row, text="Dongle-Board", bg=BG_TITLE, fg=FG_DIM,
-                 font=("Segoe UI", 9)).pack(side="left")
-        for val, label in (("nicenano", "Pro Micro nRF52840"), ("holyiot", "Holyiot nRF52840")):
-            tk.Radiobutton(board_row, text=label, variable=self._board_var, value=val,
-                           bg=BG_TITLE, fg=FG, selectcolor=BG, activebackground=BG_TITLE,
-                           activeforeground=ACCENT, font=("Segoe UI", 9),
-                           command=self._on_board_change
-                           ).pack(side="right", padx=6)
-
-        # Dongle commands
-        tk.Frame(ov, bg=BORDER, height=1).pack(fill="x", padx=12)
-        tk.Label(ov, text="Dongle Befehle", bg=BG_TITLE, fg=FG_DIM,
-                 font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(8, 4))
-        cmd_row1 = tk.Frame(ov, bg=BG_TITLE)
-        cmd_row1.pack(fill="x", padx=16, pady=(0, 4))
-        cmd_row2 = tk.Frame(ov, bg=BG_TITLE)
-        cmd_row2.pack(fill="x", padx=16, pady=(0, 8))
-
-        def _mkc(parent, text, cmd, color=FG):
-            b = tk.Button(parent, text=text, command=lambda: self._send_cmd(cmd),
-                          bg=BG_BTN, fg=color, activebackground=BG_BTN_A,
-                          activeforeground=FG, bd=0, relief="flat",
-                          font=("Segoe UI", 9), padx=10, pady=5, cursor="hand2")
-            b.pack(side="left", padx=(0, 6))
-            return b
-
-        _mkc(cmd_row1, "Pairing",  "pairing", ACCENT)
-        _mkc(cmd_row1, "List",     "list")
-        _mkc(cmd_row1, "Uptime",   "uptime")
-        _mkc(cmd_row2, "Remove",   "remove",  YELLOW)
-        _mkc(cmd_row2, "Clear",    "clear",   RED)
-        _mkc(cmd_row2, "Reboot",   "reboot",  FG_DIM)
-
-        # Version info
-        tk.Frame(ov, bg=BORDER, height=1).pack(fill="x", padx=12)
-        ver_frame = tk.Frame(ov, bg=BG_TITLE)
-        ver_frame.pack(fill="x", padx=16, pady=(10, 12))
-
-        for label, var, color in [
-            ("Server",  tk.StringVar(value=SERVER_VERSION), ACCENT),
-            ("Dongle",  self._dongle_ver_var,        FG),
-            ("Headpat", self._hp_ver_var,             FG),
-        ]:
-            r = tk.Frame(ver_frame, bg=BG_TITLE)
-            r.pack(fill="x", pady=3)
-            tk.Label(r, text=label, bg=BG_TITLE, fg=FG_DIM,
-                     font=("Segoe UI", 10)).pack(side="left")
-            tk.Label(r, textvariable=var, bg=BG_TITLE, fg=color,
-                     font=("Segoe UI", 10, "bold")).pack(side="right")
-
+    # ── Settings window ───────────────────────────────────────────────────────
     def _send_cmd(self, cmd: str):
         with self._ser_lock:
             ser = self._ser
@@ -906,31 +810,126 @@ class App(tk.Tk):
             self._log("Dongle nicht verbunden", "warn")
 
     def _on_board_change(self):
-        self._updates.pop("dongle", None)  # force re-check with new asset name
+        self._updates.pop("dongle", None)
         self._save_config()
         threading.Thread(target=self._check_all_releases, daemon=True).start()
 
     def _open_settings(self, event=None):
-        if self._settings_open:
-            self._close_settings()
+        if self._settings_win and self._settings_win.winfo_exists():
+            self._settings_win.focus()
             return
         self._settings_open = True
-        if SERIAL_OK:
-            ports = [p.device for p in serial.tools.list_ports.comports()]
-            self._port_cb["values"] = ports
-            if ports and not self._port_var.get():
-                self._port_var.set(ports[0])
+
+        win = tk.Toplevel(self)
+        self._settings_win = win
+        win.title("Einstellungen")
+        win.configure(bg=BG_TITLE)
+        win.resizable(False, False)
+        win.protocol("WM_DELETE_WINDOW", self._close_settings)
+
+        self.update_idletasks()
+        x = self.winfo_x() + self.winfo_width() + 8
+        y = self.winfo_y()
+        win.geometry(f"340+{x}+{y}")
+
+        tk.Frame(win, bg=ACCENT, height=2).pack(fill="x")
+        tk.Label(win, text="Einstellungen", bg=BG_TITLE, fg=FG,
+                 font=("Segoe UI", 12, "bold"), pady=14).pack(padx=20, anchor="w")
+
+        def sep(): tk.Frame(win, bg=BORDER, height=1).pack(fill="x", padx=12)
+        def sec(t): tk.Label(win, text=t, bg=BG_TITLE, fg=FG_DIM,
+                             font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(10, 4))
+
+        # ── Verbindung ──
+        sep()
+        sec("Verbindung")
+        conn_row = tk.Frame(win, bg=BG_TITLE)
+        conn_row.pack(fill="x", padx=16, pady=(0, 14))
+
+        s = ttk.Style()
+        s.theme_use("clam")
+        s.configure("P.TCombobox", fieldbackground=BG, background=BG,
+                    foreground=FG, selectbackground="#1e2028",
+                    selectforeground=FG, arrowcolor=ACCENT, bordercolor=BORDER,
+                    insertcolor=FG)
+        s.map("P.TCombobox",
+              fieldbackground=[("focus", BG), ("!focus", BG)],
+              foreground=[("focus", FG), ("!focus", FG)],
+              background=[("active", BG), ("!active", BG)])
+
+        ports = [p.device for p in serial.tools.list_ports.comports()] if SERIAL_OK else []
+        if ports and not self._port_var.get():
+            self._port_var.set(ports[0])
+
+        ttk.Combobox(conn_row, textvariable=self._port_var,
+                     values=ports, width=10, style="P.TCombobox").pack(side="left")
+
         is_connected = self._ser is not None
-        self._conn_btn.config(
-            text="Disconnect" if is_connected else "Connect",
-            fg=RED if is_connected else ACCENT
-        )
-        self._overlay.place(x=0, y=46, relwidth=1, relheight=1)
-        self._overlay.lift()
+        tk.Button(conn_row,
+                  text="Disconnect" if is_connected else "Connect",
+                  command=self._toggle_serial,
+                  bg=BG_BTN, fg=RED if is_connected else ACCENT,
+                  activebackground=BG_BTN_A, activeforeground=FG,
+                  bd=0, relief="flat", font=("Segoe UI", 10),
+                  padx=12, pady=6, cursor="hand2").pack(side="left", padx=(10, 0))
+
+        # ── Dongle-Board ──
+        sep()
+        sec("Dongle-Board")
+        board_row = tk.Frame(win, bg=BG_TITLE)
+        board_row.pack(fill="x", padx=16, pady=(0, 14))
+        for val, label in (("nicenano", "Pro Micro nRF52840"), ("holyiot", "Holyiot nRF52840")):
+            tk.Radiobutton(board_row, text=label, variable=self._board_var, value=val,
+                           bg=BG_TITLE, fg=FG, selectcolor=BG,
+                           activebackground=BG_TITLE, activeforeground=ACCENT,
+                           font=("Segoe UI", 10),
+                           command=self._on_board_change).pack(side="left", padx=(0, 14))
+
+        # ── Dongle Befehle ──
+        sep()
+        sec("Dongle Befehle")
+
+        def _mkc(parent, text, cmd, color=FG):
+            tk.Button(parent, text=text, command=lambda: self._send_cmd(cmd),
+                      bg=BG_BTN, fg=color, activebackground=BG_BTN_A,
+                      activeforeground=FG, bd=0, relief="flat",
+                      font=("Segoe UI", 10), padx=12, pady=7,
+                      cursor="hand2").pack(side="left", padx=(0, 8))
+
+        r1 = tk.Frame(win, bg=BG_TITLE)
+        r1.pack(fill="x", padx=16, pady=(0, 6))
+        _mkc(r1, "Pairing", "pairing", ACCENT)
+        _mkc(r1, "List",    "list")
+        _mkc(r1, "Uptime",  "uptime")
+
+        r2 = tk.Frame(win, bg=BG_TITLE)
+        r2.pack(fill="x", padx=16, pady=(0, 14))
+        _mkc(r2, "Remove", "remove", YELLOW)
+        _mkc(r2, "Clear",  "clear",  RED)
+        _mkc(r2, "Reboot", "reboot", FG_DIM)
+
+        # ── Versionen ──
+        sep()
+        sec("Versionen")
+        ver_frame = tk.Frame(win, bg=BG_TITLE)
+        ver_frame.pack(fill="x", padx=16, pady=(0, 18))
+        for label, var, color in [
+            ("Server",  tk.StringVar(value=SERVER_VERSION), ACCENT),
+            ("Dongle",  self._dongle_ver_var,               FG),
+            ("Headpat", self._hp_ver_var,                   FG),
+        ]:
+            r = tk.Frame(ver_frame, bg=BG_TITLE)
+            r.pack(fill="x", pady=5)
+            tk.Label(r, text=label, bg=BG_TITLE, fg=FG_DIM,
+                     font=("Segoe UI", 10)).pack(side="left")
+            tk.Label(r, textvariable=var, bg=BG_TITLE, fg=color,
+                     font=("Segoe UI", 10, "bold")).pack(side="right")
 
     def _close_settings(self):
         self._settings_open = False
-        self._overlay.place_forget()
+        if self._settings_win and self._settings_win.winfo_exists():
+            self._settings_win.destroy()
+        self._settings_win = None
 
     # ── Serial ────────────────────────────────────────────────────────────────
     def _refresh_ports(self):
