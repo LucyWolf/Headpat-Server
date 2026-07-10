@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.9.2"
+SERVER_VERSION  = "v2.9.3"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -978,17 +978,29 @@ class App(tk.Tk):
         ports = [p.device for p in serial.tools.list_ports.comports()]
         for port in ports:
             try:
-                with serial.Serial(port, BAUD, timeout=0.5) as s:
+                with serial.Serial(port, BAUD, timeout=1) as s:
+                    time.sleep(0.1)
+                    s.reset_input_buffer()
                     s.write(b"info\n")
-                    time.sleep(0.4)
-                    resp = s.read(s.in_waiting).decode(errors="ignore")
-                if "Headpat Dongle" in resp:
-                    return port
+                    data = b""
+                    deadline = time.time() + 1.2
+                    while time.time() < deadline:
+                        if s.in_waiting:
+                            data += s.read(s.in_waiting)
+                        if b"Headpat Dongle" in data:
+                            return port
+                        time.sleep(0.05)
             except Exception:
                 pass
         return None
 
     def _search_dongle_port(self):
+        with self._ser_lock:
+            ser = self._ser
+        if ser:
+            self._log(f"Dongle bereits verbunden: {ser.port}", "info")
+            self._port_var.set(ser.port)
+            return
         self._log("Suche Headpat Dongle…", "info")
         def _run():
             port = self._auto_find_dongle_port()
