@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.7.9"
+SERVER_VERSION  = "v2.8.0"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -803,7 +803,7 @@ class App(tk.Tk):
         if ser:
             try:
                 ser.write(f"{cmd}\n".encode())
-                self._log(f"→ {cmd}", "info")
+                self._log(f">> {cmd}", "info")
             except Exception as e:
                 self._log(f"Fehler: {e}", "err")
         else:
