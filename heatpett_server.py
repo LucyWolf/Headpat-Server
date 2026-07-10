@@ -1134,13 +1134,13 @@ class App(tk.Tk):
                                   values=["de", "en"], width=6,
                                   style="P.TCombobox", state="readonly")
         lang_combo.pack(side="left")
-        lang_restart_lbl = tk.Label(lang_row, text="", bg=BG_TITLE, fg=YELLOW,
-                                    font=("Segoe UI", 9))
-        lang_restart_lbl.pack(side="left", padx=(10, 0))
 
         def _on_lang_change(*_):
+            global _LANG
+            _LANG = self._lang_var.get()
             self._save_config()
-            lang_restart_lbl.config(text=_t("lang_restart"))
+            win.destroy()
+            self.after(30, self._open_settings)
 
         self._lang_var.trace_add("write", _on_lang_change)
 
