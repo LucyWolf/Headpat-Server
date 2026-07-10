@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.8.9"
+SERVER_VERSION  = "v2.9.0"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -364,6 +364,8 @@ class App(tk.Tk):
         tk.Frame(win, bg=ACCENT, height=2).pack(fill="x")
         tk.Label(win, text="Verfügbare Updates", bg=BG, fg=FG,
                  font=("Segoe UI", 12, "bold"), pady=12).pack(padx=20)
+        tk.Label(win, text="Dongle & Headpat müssen per USB\nmit dem PC verbunden sein.",
+                 bg=BG, fg=FG_DIM, font=("Segoe UI", 9), justify="center").pack(padx=20, pady=(0, 8))
         labels = {"headpat": "Headpat Firmware", "dongle": "Dongle Firmware",
                   "server": "Server"}
         for key, entry in self._updates.items():
