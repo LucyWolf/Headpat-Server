@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.9.4"
+SERVER_VERSION  = "v2.9.5"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -355,8 +355,6 @@ class App(tk.Tk):
             tk.messagebox.showerror("Flash-Fehler", str(e), parent=self)
 
     def _open_update_dialog(self):
-        if not self._updates:
-            return
         win = tk.Toplevel(self)
         win.title("Updates")
         win.configure(bg=BG)
@@ -366,31 +364,50 @@ class App(tk.Tk):
                  font=("Segoe UI", 12, "bold"), pady=12).pack(padx=20)
         tk.Label(win, text="Dongle & Headpat müssen per USB\nmit dem PC verbunden sein.",
                  bg=BG, fg=FG_DIM, font=("Segoe UI", 9), justify="center").pack(padx=20, pady=(0, 8))
-        labels = {"headpat": "Headpat Firmware", "dongle": "Dongle Firmware",
-                  "server": "Server"}
-        for key, entry in self._updates.items():
-            row = tk.Frame(win, bg=BG)
-            row.pack(fill="x", padx=20, pady=4)
-            if key == "server":
-                tk.Button(row, text="Update →",
-                          command=lambda k=key, w=win: (w.destroy(), self._server_update(k)),
-                          bg=BG_BTN, fg=ACCENT, activebackground=BG_BTN_A, bd=0,
-                          relief="flat", font=("Segoe UI", 9), padx=8, pady=4,
-                          cursor="hand2").pack(side="right", padx=(4, 6))
-            else:
-                tk.Button(row, text="Flashen →",
-                          command=lambda k=key, w=win: self._initiate_flash(k, w),
-                          bg=BG_BTN, fg=ACCENT, activebackground=BG_BTN_A, bd=0,
-                          relief="flat", font=("Segoe UI", 9), padx=8, pady=4,
-                          cursor="hand2").pack(side="right", padx=(4, 6))
-            tk.Label(row, text=entry["tag"], bg=BG, fg=ACCENT,
-                     font=("Segoe UI", 10, "bold")).pack(side="left", padx=(0, 8))
-            tk.Label(row, text=labels.get(key, key), bg=BG, fg=FG,
-                     font=("Segoe UI", 10)).pack(side="left")
-        tk.Button(win, text="Schließen", command=win.destroy,
+
+        labels = {"headpat": "Headpat Firmware", "dongle": "Dongle Firmware", "server": "Server"}
+        if self._updates:
+            for key, entry in self._updates.items():
+                row = tk.Frame(win, bg=BG)
+                row.pack(fill="x", padx=20, pady=4)
+                if key == "server":
+                    tk.Button(row, text="Update →",
+                              command=lambda k=key, w=win: (w.destroy(), self._server_update(k)),
+                              bg=BG_BTN, fg=ACCENT, activebackground=BG_BTN_A, bd=0,
+                              relief="flat", font=("Segoe UI", 9), padx=8, pady=4,
+                              cursor="hand2").pack(side="right", padx=(4, 6))
+                else:
+                    tk.Button(row, text="Flashen →",
+                              command=lambda k=key, w=win: self._initiate_flash(k, w),
+                              bg=BG_BTN, fg=ACCENT, activebackground=BG_BTN_A, bd=0,
+                              relief="flat", font=("Segoe UI", 9), padx=8, pady=4,
+                              cursor="hand2").pack(side="right", padx=(4, 6))
+                tk.Label(row, text=entry["tag"], bg=BG, fg=ACCENT,
+                         font=("Segoe UI", 10, "bold")).pack(side="left", padx=(0, 8))
+                tk.Label(row, text=labels.get(key, key), bg=BG, fg=FG,
+                         font=("Segoe UI", 10)).pack(side="left")
+        else:
+            tk.Label(win, text="Alles aktuell.", bg=BG, fg=FG_DIM,
+                     font=("Segoe UI", 10), pady=12).pack()
+
+        def _refresh():
+            win.destroy()
+            self._log("Suche nach Updates…", "info")
+            def _run():
+                self._check_all_releases()
+                self.after(0, self._open_update_dialog)
+            threading.Thread(target=_run, daemon=True).start()
+
+        bottom = tk.Frame(win, bg=BG)
+        bottom.pack(fill="x", padx=20, pady=(8, 16))
+        tk.Button(bottom, text="Aktualisieren", command=_refresh,
+                  bg=BG_BTN, fg=FG, activebackground=BG_BTN_A, bd=0,
+                  relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
+                  cursor="hand2").pack(side="left")
+        tk.Button(bottom, text="Schließen", command=win.destroy,
                   bg=BG_TITLE, fg=FG_DIM, activebackground=BG_BTN, bd=0,
                   relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
-                  cursor="hand2").pack(pady=(12, 16))
+                  cursor="hand2").pack(side="right")
 
     def _initiate_flash(self, key, dialog=None):
         if dialog:
