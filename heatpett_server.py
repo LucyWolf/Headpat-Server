@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.6"
+SERVER_VERSION  = "v2.7"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1056,7 +1056,12 @@ class App(tk.Tk):
             self._vrc_connected = True
             self._q.put(("vrc", True))
 
-        param = address.split("/")[-1].lower()
+        # only direct parameters: /avatar/parameters/<name> — not nested paths like /avatar/parameters/VF158_Toggles/Headpat
+        parts = address.split("/")
+        if len(parts) != 4:
+            return
+
+        param = parts[3].lower()
         if "headpat" not in param and "patstrap" not in param:
             return
 
