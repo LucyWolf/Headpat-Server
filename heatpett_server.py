@@ -56,7 +56,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v2.8.3"
+SERVER_VERSION  = "v2.8.4"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1026,7 +1026,11 @@ class App(tk.Tk):
                     continue
 
                 if line.startswith("Connected:"):
-                    up = "YES" in line
+                    val_str = line.split(":", 1)[1].strip()
+                    if "/" in val_str:
+                        up = val_str.split("/")[0].strip() != "0"
+                    else:
+                        up = val_str.upper() == "YES"
                     self._q.put(("hp_ble", up))
                     if up and not self._ble_connected:
                         try:
