@@ -96,7 +96,7 @@ TRANSLATIONS = {
         "btn_update": "Update →",
         "btn_flash": "Flashen →",
         "hp_flash_title": "Headpat Update",
-        "hp_flash_hint": "Headpat per USB anschließen,\ndann den Reset-Button 2× schnell drücken.",
+        "hp_flash_hint": "Headpat per USB anschließen,\ndann Port auswählen und Flashen drücken.",
         "lbl_drive": "Laufwerk:",
         "waiting_device": "Warte auf Gerät…",
         "drives_found": "{n} Laufwerk(e) gefunden",
@@ -124,7 +124,7 @@ TRANSLATIONS = {
         "btn_update": "Update →",
         "btn_flash": "Flash →",
         "hp_flash_title": "Headpat Update",
-        "hp_flash_hint": "Connect Headpat via USB,\nthen double-press the reset button.",
+        "hp_flash_hint": "Connect Headpat via USB,\nthen select the port and press Flash.",
         "lbl_drive": "Drive:",
         "waiting_device": "Waiting for device…",
         "drives_found": "{n} drive(s) found",
@@ -529,43 +529,48 @@ class App(tk.Tk):
         tk.Label(win, text=_t("hp_flash_hint"),
                  bg=BG, fg=FG_DIM, font=("Segoe UI", 10), justify="center").pack(padx=20, pady=(0, 14))
 
-        drive_row = tk.Frame(win, bg=BG)
-        drive_row.pack(fill="x", padx=20, pady=(0, 6))
-        tk.Label(drive_row, text=_t("lbl_drive"), bg=BG, fg=FG_DIM,
+        port_row = tk.Frame(win, bg=BG)
+        port_row.pack(fill="x", padx=20, pady=(0, 6))
+        tk.Label(port_row, text="COM Port:", bg=BG, fg=FG_DIM,
                  font=("Segoe UI", 10)).pack(side="left")
 
-        drive_var = tk.StringVar()
-        s = ttk.Style(); s.theme_use("clam")
-        combo = ttk.Combobox(drive_row, textvariable=drive_var,
-                              width=10, style="P.TCombobox", state="readonly")
-        combo.pack(side="left", padx=(8, 0))
+        ports = [p.device for p in serial.tools.list_ports.comports()] if SERIAL_OK else []
+        port_var = tk.StringVar()
+        port_combo = ttk.Combobox(port_row, textvariable=port_var, values=ports,
+                                  width=10, style="P.TCombobox")
+        port_combo.pack(side="left", padx=(8, 0))
 
-        status_lbl = tk.Label(win, text=_t("waiting_device"), bg=BG, fg=YELLOW,
-                              font=("Segoe UI", 9))
+        status_lbl = tk.Label(win, text="", bg=BG, fg=FG_DIM, font=("Segoe UI", 9))
         status_lbl.pack(pady=(0, 10))
 
-        def _refresh():
-            if not win.winfo_exists():
-                return
-            drives = sorted(self._find_nrf52_drives())
-            combo["values"] = drives
-            if drives:
-                if not drive_var.get() or drive_var.get() not in drives:
-                    drive_var.set(drives[0])
-                status_lbl.config(text=_t("drives_found", n=len(drives)), fg=GREEN)
-            else:
-                status_lbl.config(text=_t("waiting_device"), fg=YELLOW)
-            win.after(1200, _refresh)
+        def _search():
+            status_lbl.config(text="Suche…", fg=YELLOW)
+            win.update()
+            def _run():
+                port = self._auto_find_headpat_port()
+                def _done():
+                    if not win.winfo_exists():
+                        return
+                    if port:
+                        port_var.set(port)
+                        status_lbl.config(text=f"Headpat gefunden: {port}", fg=GREEN)
+                    else:
+                        status_lbl.config(text="Kein Headpat gefunden", fg=FG_DIM)
+                win.after(0, _done)
+            threading.Thread(target=_run, daemon=True).start()
 
-        win.after(200, _refresh)
+        tk.Button(port_row, text=_t("btn_search"), command=_search,
+                  bg=BG_BTN, fg=FG_DIM, activebackground=BG_BTN_A, bd=0,
+                  relief="flat", font=("Segoe UI", 10), padx=10, pady=6,
+                  cursor="hand2").pack(side="left", padx=(6, 0))
 
         def _do_flash():
-            drive = drive_var.get()
-            if not drive:
+            port = port_var.get()
+            if not port:
                 return
             win.destroy()
             self._pending_flash = "headpat"
-            self._flash_uf2_wait("headpat", drive)
+            threading.Thread(target=self._trigger_headpat_dfu, args=(port,), daemon=True).start()
 
         btn_row = tk.Frame(win, bg=BG)
         btn_row.pack(fill="x", padx=20, pady=(4, 16))
@@ -577,6 +582,38 @@ class App(tk.Tk):
                   bg=BG_BTN, fg=ACCENT, activebackground=BG_BTN_A, bd=0,
                   relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
                   cursor="hand2").pack(side="right")
+
+    def _auto_find_headpat_port(self):
+        if not SERIAL_OK:
+            return None
+        for info in serial.tools.list_ports.comports():
+            port = info.device
+            try:
+                with serial.Serial(port, BAUD, timeout=1) as s:
+                    time.sleep(0.1)
+                    s.reset_input_buffer()
+                    s.write(b"info\n")
+                    data = b""
+                    deadline = time.time() + 1.2
+                    while time.time() < deadline:
+                        if s.in_waiting:
+                            data += s.read(s.in_waiting)
+                        if b"Headpat v" in data:
+                            return port
+                        time.sleep(0.05)
+            except Exception:
+                pass
+        return None
+
+    def _trigger_headpat_dfu(self, port):
+        try:
+            with serial.Serial(port, BAUD, timeout=1) as s:
+                time.sleep(0.1)
+                s.write(b"dfu\n")
+                time.sleep(0.3)
+            self._log(f"[HEADPAT] DFU gesendet an {port}, warte auf Laufwerk…", "info")
+        except Exception as e:
+            self._log(f"[HEADPAT] DFU-Fehler: {e}", "error")
 
     def _server_update(self, key):
         entry = self._updates.get(key)
@@ -1096,39 +1133,6 @@ class App(tk.Tk):
                      font=("Segoe UI", 10)).pack(side="left")
             tk.Label(r, textvariable=var, bg=BG_TITLE, fg=color,
                      font=("Segoe UI", 10, "bold")).pack(side="right")
-
-        # ── Headpat Laufwerk ──
-        sep()
-        sec(_t("sec_hp_drive"))
-        hp_drive_frame = tk.Frame(win, bg=BG_TITLE)
-        hp_drive_frame.pack(fill="x", padx=16, pady=(0, 2))
-        hp_drives_var = tk.StringVar()
-        hp_combo = ttk.Combobox(hp_drive_frame, textvariable=hp_drives_var,
-                                width=9, style="P.TCombobox")
-        hp_combo.pack(side="left")
-
-        hp_status = tk.Label(win, text="", bg=BG_TITLE, fg=FG_DIM,
-                             font=("Segoe UI", 8))
-        hp_status.pack(anchor="w", padx=16)
-
-        def _refresh_hp_drives():
-            drives = sorted(self._find_nrf52_drives())
-            hp_combo["values"] = drives
-            if drives:
-                if not hp_drives_var.get() or hp_drives_var.get() not in drives:
-                    hp_drives_var.set(drives[0])
-                hp_status.config(text=_t("drives_found", n=len(drives)), fg=GREEN)
-            else:
-                hp_status.config(text=_t("lbl_no_drive"), fg=FG_DIM)
-
-        tk.Button(hp_drive_frame, text=_t("btn_refresh"),
-                  command=_refresh_hp_drives,
-                  bg=BG_BTN, fg=FG_DIM, activebackground=BG_BTN_A,
-                  bd=0, relief="flat", font=("Segoe UI", 10),
-                  padx=10, pady=6, cursor="hand2").pack(side="left", padx=(6, 0))
-        _refresh_hp_drives()
-        tk.Label(win, text=_t("hp_drive_hint"), bg=BG_TITLE, fg=FG_DIM,
-                 font=("Segoe UI", 8), pady=0).pack(anchor="w", padx=16, pady=(2, 10))
 
         # ── Sprache ──
         sep()
