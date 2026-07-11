@@ -147,6 +147,7 @@ class App(tk.Tk):
         self._vrc_connected = False
         self._ble_connected = False
         self._last_osc      = 0.0
+        self._last_motor_nz = 0.0  # last time a non-zero motor value was sent
         self._drag_x        = 0
         self._drag_y        = 0
         self._logo_img      = None
@@ -1433,6 +1434,7 @@ class App(tk.Tk):
             nibble = max(1, int(15 * self._intensity))  # Trigger: volle Stärke für aktuelle Intensity
         else:
             nibble = max(0, min(15, int(val * 15 * self._intensity)))  # Proximity: proportional
+        self._last_motor_nz = time.time()
         if "left"  in param: self._send_motor(nibble, 0)
         elif "right" in param: self._send_motor(0, nibble)
         else:                   self._send_motor(nibble, nibble)
@@ -1486,9 +1488,16 @@ class App(tk.Tk):
         except queue.Empty:
             pass
 
-        if self._vrc_connected and time.time() - self._last_osc > VRC_TIMEOUT:
+        now = time.time()
+        if self._vrc_connected and now - self._last_osc > VRC_TIMEOUT:
             self._vrc_connected = False
             self._set_dot(self._vrc_dot, RED)
+            self._send_motor(0, 0)  # VRC weg → Motoren sofort stoppen
+
+        # Watchdog: kein Motor-Update seit 500ms → stoppen
+        if self._last_motor_nz and now - self._last_motor_nz > 0.5:
+            self._last_motor_nz = 0.0
+            self._send_motor(0, 0)
 
         self.after(100, self._tick)
 
