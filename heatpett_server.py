@@ -1430,7 +1430,7 @@ class App(tk.Tk):
             self._send_motor(0, 0)
             return
         if self._vib_mode == 1:
-            nibble = 15  # Trigger: immer max
+            nibble = max(1, int(15 * self._intensity))  # Trigger: volle Stärke für aktuelle Intensity
         else:
             nibble = max(0, min(15, int(val * 15 * self._intensity)))  # Proximity: proportional
         if "left"  in param: self._send_motor(nibble, 0)
