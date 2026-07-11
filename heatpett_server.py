@@ -1101,11 +1101,15 @@ class App(tk.Tk):
         sep()
         sec(_t("sec_hp_drive"))
         hp_drive_frame = tk.Frame(win, bg=BG_TITLE)
-        hp_drive_frame.pack(fill="x", padx=16, pady=(0, 4))
+        hp_drive_frame.pack(fill="x", padx=16, pady=(0, 2))
         hp_drives_var = tk.StringVar()
         hp_combo = ttk.Combobox(hp_drive_frame, textvariable=hp_drives_var,
-                                width=12, style="P.TCombobox", state="readonly")
+                                width=9, style="P.TCombobox")
         hp_combo.pack(side="left")
+
+        hp_status = tk.Label(win, text="", bg=BG_TITLE, fg=FG_DIM,
+                             font=("Segoe UI", 8))
+        hp_status.pack(anchor="w", padx=16)
 
         def _refresh_hp_drives():
             drives = sorted(self._find_nrf52_drives())
@@ -1113,8 +1117,9 @@ class App(tk.Tk):
             if drives:
                 if not hp_drives_var.get() or hp_drives_var.get() not in drives:
                     hp_drives_var.set(drives[0])
+                hp_status.config(text=_t("drives_found", n=len(drives)), fg=GREEN)
             else:
-                hp_drives_var.set("")
+                hp_status.config(text=_t("lbl_no_drive"), fg=FG_DIM)
 
         tk.Button(hp_drive_frame, text=_t("btn_refresh"),
                   command=_refresh_hp_drives,
@@ -1123,7 +1128,7 @@ class App(tk.Tk):
                   padx=10, pady=6, cursor="hand2").pack(side="left", padx=(6, 0))
         _refresh_hp_drives()
         tk.Label(win, text=_t("hp_drive_hint"), bg=BG_TITLE, fg=FG_DIM,
-                 font=("Segoe UI", 8), pady=0).pack(anchor="w", padx=16, pady=(0, 10))
+                 font=("Segoe UI", 8), pady=0).pack(anchor="w", padx=16, pady=(2, 10))
 
         # ── Sprache ──
         sep()
