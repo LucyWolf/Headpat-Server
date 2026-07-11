@@ -156,6 +156,7 @@ class App(tk.Tk):
         self._settings_open  = False
         self._settings_win   = None
         self._osc_verbose    = bool(self._cfg.get("osc_verbose", False))
+        self._vib_mode       = int(self._cfg.get("vib_mode", 0))  # 0=proximity 1=trigger
         self._console_win    = None
         self._console_text   = None
         self._log_buf        = collections.deque(maxlen=500)
@@ -710,6 +711,7 @@ class App(tk.Tk):
             "win_y":        self.winfo_y(),
             "dongle_board": self._board_var.get(),
             "lang":         self._lang_var.get(),
+            "vib_mode":     self._vib_mode,
         }
         try:
             os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -837,6 +839,43 @@ class App(tk.Tk):
                  showvalue=False, length=230,
                  command=self._on_intensity_change
                  ).pack(side="right")
+
+        # ── Separator ─────────────────────────────────────────────────────────
+        tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
+
+        # ── Mode row ──────────────────────────────────────────────────────────
+        mode_row = tk.Frame(card, bg=BG)
+        mode_row.pack(fill="x", padx=20, pady=(14, 14))
+        tk.Label(mode_row, text="Modus", bg=BG, fg=FG,
+                 font=("Segoe UI", 11)).pack(side="left")
+
+        self._mode_btns = []
+
+        def _select_mode(m):
+            self._vib_mode = m
+            self._debounce_save()
+            for i, b in enumerate(self._mode_btns):
+                b.config(fg=ACCENT if i == m else FG_DIM,
+                         bg=BG_BTN if i == m else BG)
+
+        _m = self._vib_mode
+        btn_prox = tk.Button(mode_row, text="Proximity",
+                             command=lambda: _select_mode(0),
+                             bg=BG_BTN if _m == 0 else BG,
+                             fg=ACCENT if _m == 0 else FG_DIM,
+                             activebackground=BG_BTN_A, bd=0, relief="flat",
+                             font=("Segoe UI", 10), padx=12, pady=6,
+                             cursor="hand2")
+        btn_trig = tk.Button(mode_row, text="Trigger",
+                             command=lambda: _select_mode(1),
+                             bg=BG_BTN if _m == 1 else BG,
+                             fg=ACCENT if _m == 1 else FG_DIM,
+                             activebackground=BG_BTN_A, bd=0, relief="flat",
+                             font=("Segoe UI", 10), padx=12, pady=6,
+                             cursor="hand2")
+        btn_trig.pack(side="right")
+        btn_prox.pack(side="right", padx=(0, 6))
+        self._mode_btns = [btn_prox, btn_trig]
 
         # ── Separator ─────────────────────────────────────────────────────────
         tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
@@ -1390,7 +1429,10 @@ class App(tk.Tk):
         if val < 0.02:
             self._send_motor(0, 0)
             return
-        nibble = max(0, min(15, int(val * 15 * self._intensity)))
+        if self._vib_mode == 1:
+            nibble = 15  # Trigger: immer max
+        else:
+            nibble = max(0, min(15, int(val * 15 * self._intensity)))  # Proximity: proportional
         if "left"  in param: self._send_motor(nibble, 0)
         elif "right" in param: self._send_motor(0, nibble)
         else:                   self._send_motor(nibble, nibble)
