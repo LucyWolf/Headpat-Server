@@ -57,7 +57,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.1.6"
+SERVER_VERSION  = "v3.1.7"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -142,7 +142,7 @@ class RoundedBtn(tk.Canvas):
                          bg=p_bg, highlightthickness=0, cursor="hand2", **kw)
         self._text = text
         self._cmd  = command
-        self._w, self._h, self._r = w, h, r
+        self._bw, self._bh, self._br = w, h, r
         self._fill, self._fg, self._hover = fill, fg, hover
         self._draw(fill)
         self.bind("<Enter>",    lambda _: self._draw(self._hover))
@@ -151,7 +151,7 @@ class RoundedBtn(tk.Canvas):
 
     def _draw(self, color):
         self.delete("all")
-        r, w, h, c = self._r, self._w, self._h, color
+        r, w, h, c = self._br, self._bw, self._bh, color
         self.create_arc(0,     0,     2*r, 2*r, start=90,  extent=90, fill=c, outline=c)
         self.create_arc(w-2*r, 0,     w,   2*r, start=0,   extent=90, fill=c, outline=c)
         self.create_arc(0,     h-2*r, 2*r, h,   start=180, extent=90, fill=c, outline=c)
