@@ -57,7 +57,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.1.2"
+SERVER_VERSION  = "v3.1.3"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -869,27 +869,28 @@ class App(tk.Tk):
         # ── Separator ─────────────────────────────────────────────────────────
         tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
 
-        # ── Mode row ──────────────────────────────────────────────────────────
+        # ── Mode row — Segmented control ──────────────────────────────────────
         mode_row = tk.Frame(card, bg=BG)
         mode_row.pack(fill="x", padx=20, pady=(14, 14))
         tk.Label(mode_row, text="Modus", bg=BG, fg=FG,
                  font=("Segoe UI", 11)).pack(side="left")
+
+        seg_outer = tk.Frame(mode_row, bg=BORDER, bd=0)
+        seg_outer.pack(side="right")
 
         self._mode_btns = []
 
         def _select_mode(m):
             self._vib_mode = m
             self._debounce_save()
-            _a_bg = ACCENT
-            _i_bg = BG_BTN
             for i, b in enumerate(self._mode_btns):
-                b.config(bg=_a_bg if i == m else _i_bg,
+                b.config(bg=ACCENT if i == m else BG_BTN,
                          fg="white" if i == m else FG_DIM,
-                         activebackground=_a_bg if i == m else BG_BTN_A,
+                         activebackground=ACCENT if i == m else BG_BTN_A,
                          activeforeground="white" if i == m else FG)
 
         _m = self._vib_mode
-        btn_prox = tk.Button(mode_row, text="Proximity",
+        btn_prox = tk.Button(seg_outer, text="Proximity",
                              command=lambda: _select_mode(0),
                              bg=ACCENT if _m == 0 else BG_BTN,
                              fg="white" if _m == 0 else FG_DIM,
@@ -898,7 +899,7 @@ class App(tk.Tk):
                              bd=0, relief="flat",
                              font=("Segoe UI", 10), padx=14, pady=7,
                              cursor="hand2")
-        btn_trig = tk.Button(mode_row, text="Trigger",
+        btn_trig = tk.Button(seg_outer, text="Trigger",
                              command=lambda: _select_mode(1),
                              bg=ACCENT if _m == 1 else BG_BTN,
                              fg="white" if _m == 1 else FG_DIM,
@@ -907,8 +908,9 @@ class App(tk.Tk):
                              bd=0, relief="flat",
                              font=("Segoe UI", 10), padx=14, pady=7,
                              cursor="hand2")
-        btn_trig.pack(side="right")
-        btn_prox.pack(side="right", padx=(0, 6))
+        btn_prox.pack(side="left")
+        tk.Frame(seg_outer, bg=BORDER, width=1).pack(side="left", fill="y")
+        btn_trig.pack(side="left")
         self._mode_btns = [btn_prox, btn_trig]
 
         # ── Separator ─────────────────────────────────────────────────────────
@@ -942,10 +944,9 @@ class App(tk.Tk):
     def _mkbtn(self, parent, text, cmd):
         return tk.Button(parent, text=text, command=cmd,
                          bg=BG_BTN, fg=FG, activebackground=BG_BTN_A,
-                         activeforeground=FG, bd=1, relief="solid",
-                         highlightthickness=0,
+                         activeforeground=FG, bd=0, relief="flat",
                          font=("Segoe UI", 10, "bold"),
-                         width=4, padx=6, pady=6, cursor="hand2")
+                         width=5, padx=8, pady=8, cursor="hand2")
 
     # ── Drag ──────────────────────────────────────────────────────────────────
     def _drag_start(self, e):
@@ -1261,7 +1262,10 @@ class App(tk.Tk):
 
         sep()
         def _check_now():
-            threading.Thread(target=self._check_all_releases, daemon=True).start()
+            def _run():
+                self._check_all_releases()
+                self.after(0, self._open_update_dialog)
+            threading.Thread(target=_run, daemon=True).start()
             self._log("Suche nach Updates…", "info")
         tk.Button(win, text=_t("btn_check_updates"),
                   command=_check_now,
