@@ -57,7 +57,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.1.8"
+SERVER_VERSION  = "v3.1.9"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -220,7 +220,9 @@ class App(tk.Tk):
 
         self._load_icon()
         self._build()
-        self._int_var.set(self._cfg.get("intensity", 50))
+        _iv = self._cfg.get("intensity", 50)
+        self._int_var.set(_iv)
+        self._int_pct_var.set(f"{int(_iv)}%")
         self.update_idletasks()
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
         w,  h  = self.winfo_width(),       self.winfo_height()
@@ -872,21 +874,26 @@ class App(tk.Tk):
         # ── Separator ─────────────────────────────────────────────────────────
         tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
 
-        # ── Intensity row ─────────────────────────────────────────────────────
-        int_row = tk.Frame(card, bg=BG)
-        int_row.pack(fill="x", padx=20, pady=(18, 12))
-
-        tk.Label(int_row, text="Intensity", bg=BG, fg=FG,
+        # ── Intensity label + % ───────────────────────────────────────────────
+        int_label_row = tk.Frame(card, bg=BG)
+        int_label_row.pack(fill="x", padx=20, pady=(18, 2))
+        tk.Label(int_label_row, text="Intensity", bg=BG, fg=FG,
                  font=("Segoe UI", 11)).pack(side="left")
+        self._int_var     = tk.DoubleVar(value=50)
+        self._int_pct_var = tk.StringVar(value="50%")
+        tk.Label(int_label_row, textvariable=self._int_pct_var, bg=BG, fg=ACCENT,
+                 font=("Segoe UI", 11, "bold")).pack(side="right")
 
-        self._int_var = tk.DoubleVar(value=50)
-        tk.Scale(int_row, from_=0, to=100, orient="horizontal",
+        # ── Slider (eigene Zeile, full-width) ─────────────────────────────────
+        slider_row = tk.Frame(card, bg=BG)
+        slider_row.pack(fill="x", padx=12, pady=(0, 14))
+        tk.Scale(slider_row, from_=0, to=100, orient="horizontal",
                  variable=self._int_var, bg=BG, fg=ACCENT,
-                 troughcolor="#1a1c24", highlightthickness=0,
-                 activebackground=ACCENT, sliderlength=22, bd=0,
-                 showvalue=False, length=230,
+                 troughcolor="#1a2235", highlightthickness=0,
+                 activebackground=ACCENT, sliderlength=20, bd=0,
+                 showvalue=False,
                  command=self._on_intensity_change
-                 ).pack(side="right")
+                 ).pack(fill="x", expand=True)
 
         # ── Separator ─────────────────────────────────────────────────────────
         tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
@@ -948,6 +955,7 @@ class App(tk.Tk):
 
     def _on_intensity_change(self, v):
         self._intensity = float(v) / 100
+        self._int_pct_var.set(f"{int(float(v))}%")
         self._debounce_save()
 
     def _mkbtn(self, parent, text, cmd):
