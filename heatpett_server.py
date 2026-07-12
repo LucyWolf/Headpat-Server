@@ -30,7 +30,7 @@ except ImportError:
     OSC_OK = False
 
 try:
-    from PIL import Image, ImageTk
+    from PIL import Image, ImageTk, ImageDraw as _PilDraw
     PIL_OK = True
 except ImportError:
     PIL_OK = False
@@ -136,7 +136,9 @@ def _t(key, **kwargs):
 
 
 class RoundedBtn(tk.Canvas):
-    """Rounded rectangle button using Canvas."""
+    """Rounded rectangle button — PIL-rendered for anti-aliased corners."""
+    _SC = 3  # supersampling scale
+
     def __init__(self, parent, text, command, w=80, h=30, r=10,
                  fill=BG_BTN, fg=FG, hover=BG_BTN_A, press=None,
                  hover_fg=None, font_size=10, border_col=None, p_bg=BG, **kw):
@@ -150,28 +152,56 @@ class RoundedBtn(tk.Canvas):
         self._hover_fg   = hover_fg if hover_fg is not None else fg
         self._font_size  = font_size
         self._border_col = border_col
+        self._p_bg       = p_bg
+        self._photo      = None
         self._draw(fill, fg)
         self.bind("<Enter>",          lambda _: self._draw(self._hover, self._hover_fg))
         self.bind("<Leave>",          lambda _: self._draw(self._fill,  self._fg))
         self.bind("<ButtonPress-1>",   self._on_press)
         self.bind("<ButtonRelease-1>", self._on_release)
 
+    @staticmethod
+    def _hx(c):
+        return int(c[1:3],16), int(c[3:5],16), int(c[5:7],16)
+
+    def _make_photo(self, fill_col, border_col=None):
+        sc = self._SC
+        W, H = self._bw * sc, self._bh * sc
+        R = min(self._br * sc, W // 2, H // 2)
+        img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d   = _PilDraw.Draw(img)
+        fc  = self._hx(fill_col) + (255,)
+        if border_col:
+            bc = self._hx(border_col) + (255,)
+            d.rounded_rectangle([0, 0, W-1, H-1], radius=R, fill=fc, outline=bc, width=sc)
+        else:
+            d.rounded_rectangle([0, 0, W-1, H-1], radius=R, fill=fc)
+        img  = img.resize((self._bw, self._bh), Image.LANCZOS)
+        base = Image.new("RGBA", (self._bw, self._bh),
+                         self._hx(self._p_bg) + (255,))
+        base.alpha_composite(img)
+        return ImageTk.PhotoImage(base.convert("RGB"))
+
+    def _poly_fallback(self, color, border_col):
+        r = min(self._br, self._bw//2, self._bh//2)
+        w, h = self._bw, self._bh
+        pts = [r,0, w-r,0, w,0, w,r, w,h-r, w,h, w-r,h, r,h, 0,h, 0,h-r, 0,r, 0,0]
+        ol = border_col if border_col else color
+        self.create_polygon(pts, smooth=True, splinesteps=64, fill=color, outline=ol)
+
     def _draw(self, color, text_fg=None):
         self.delete("all")
-        r = min(self._br, self._bw // 2, self._bh // 2)
         w, h = self._bw, self._bh
-        pts = [
-            r,   0,    w-r, 0,
-            w,   0,    w,   r,
-            w,   h-r,  w,   h,
-            w-r, h,    r,   h,
-            0,   h,    0,   h-r,
-            0,   r,    0,   0,
-        ]
-        if self._border_col and color == self._fill:
-            self.create_polygon(pts, smooth=True, fill=color, outline=self._border_col)
+        bc = self._border_col if (self._border_col and color == self._fill) else None
+        if PIL_OK:
+            try:
+                photo = self._make_photo(color, bc)
+                self._photo = photo
+                self.create_image(0, 0, anchor="nw", image=photo)
+            except Exception:
+                self._poly_fallback(color, bc)
         else:
-            self.create_polygon(pts, smooth=True, fill=color, outline=color)
+            self._poly_fallback(color, bc)
         self.create_text(w//2, h//2, text=self._text,
                          fill=text_fg if text_fg is not None else self._fg,
                          font=("Segoe UI", self._font_size))
@@ -225,11 +255,64 @@ class SegmentedControl(tk.Canvas):
     def _seg_x(self, i):
         return self._pad + i * (self._seg_w + self._pad)
 
+    @staticmethod
+    def _hx(c):
+        return int(c[1:3],16), int(c[3:5],16), int(c[5:7],16)
+
     def _draw(self):
         self.delete("all")
+        if PIL_OK:
+            try:
+                self._draw_pil()
+                return
+            except Exception:
+                pass
+        self._draw_poly()
+
+    def _draw_pil(self):
+        sc = 3
+        W, H = self._tw * sc, self._th * sc
+        img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d   = _PilDraw.Draw(img)
+        # Container
+        sc_col = self._hx(SEG_CONT) + (255,)
+        d.rounded_rectangle([0, 0, W-1, H-1], radius=self._r_cont*sc, fill=sc_col)
+        # Segments
+        for i, label in enumerate(self._labels):
+            x1 = self._seg_x(i) * sc
+            y1 = self._pad * sc
+            x2 = x1 + self._seg_w * sc
+            y2 = y1 + self._h * sc
+            is_active = i == self._active
+            is_hover  = i == self._hover and not is_active
+            if is_active:
+                col = self._hx(ACCENT) + (255,)
+                d.rounded_rectangle([x1, y1, x2, y2], radius=self._r_seg*sc, fill=col)
+            elif is_hover:
+                col = self._hx(self._SEG_HOVER) + (220,)
+                d.rounded_rectangle([x1, y1, x2, y2], radius=self._r_seg*sc, fill=col)
+        img  = img.resize((self._tw, self._th), Image.LANCZOS)
+        base = Image.new("RGBA", (self._tw, self._th),
+                         self._hx(self.cget("bg")) + (255,))
+        base.alpha_composite(img)
+        photo = ImageTk.PhotoImage(base.convert("RGB"))
+        self._photo = photo
+        self.create_image(0, 0, anchor="nw", image=photo)
+        # Labels drawn by tkinter (ClearType)
+        for i, label in enumerate(self._labels):
+            is_active = i == self._active
+            is_hover  = i == self._hover and not is_active
+            fg_c = "white" if is_active else (self._SEG_HDIM if is_hover else self._SEG_DIM)
+            bold = "bold" if is_active else "normal"
+            cx = self._seg_x(i) + self._seg_w // 2
+            cy = self._pad + self._h // 2
+            self.create_text(cx, cy, text=label, fill=fg_c,
+                             font=("Segoe UI", 10, bold))
+
+    def _draw_poly(self):
         w, h, r = self._tw, self._th, self._r_cont
         pts = [r,0, w-r,0, w,0, w,r, w,h-r, w,h, w-r,h, r,h, 0,h, 0,h-r, 0,r, 0,0]
-        self.create_polygon(pts, smooth=True, fill=SEG_CONT, outline=SEG_CONT)
+        self.create_polygon(pts, smooth=True, splinesteps=64, fill=SEG_CONT, outline=SEG_CONT)
         for i, label in enumerate(self._labels):
             x1 = self._seg_x(i)
             y1 = self._pad
@@ -238,27 +321,21 @@ class SegmentedControl(tk.Canvas):
             is_active = i == self._active
             is_hover  = i == self._hover and not is_active
             if is_active:
-                bg_c  = ACCENT
-                fg_c  = "white"
-                bold  = "bold"
+                bg_c, fg_c, bold = ACCENT, "white", "bold"
             elif is_hover:
-                bg_c  = self._SEG_HOVER
-                fg_c  = self._SEG_HDIM
-                bold  = "normal"
+                bg_c, fg_c, bold = self._SEG_HOVER, self._SEG_HDIM, "normal"
             else:
-                bg_c = fg_c = bold = None
+                bg_c = None; fg_c = self._SEG_DIM; bold = "normal"
             if bg_c:
                 r2 = self._r_seg
-                sx, sy = x2 - x1, y2 - y1
                 p2 = [x1+r2,y1, x2-r2,y1, x2,y1, x2,y1+r2,
                       x2,y2-r2, x2,y2, x2-r2,y2, x1+r2,y2,
                       x1,y2, x1,y2-r2, x1,y1+r2, x1,y1]
-                self.create_polygon(p2, smooth=True, fill=bg_c, outline=bg_c)
+                self.create_polygon(p2, smooth=True, splinesteps=64, fill=bg_c, outline=bg_c)
             cx = x1 + self._seg_w // 2
             cy = y1 + self._h // 2
-            self.create_text(cx, cy, text=label,
-                             fill=fg_c or self._SEG_DIM,
-                             font=("Segoe UI", 10, bold or "normal"))
+            self.create_text(cx, cy, text=label, fill=fg_c,
+                             font=("Segoe UI", 10, bold))
 
     def _hit(self, x):
         for i in range(len(self._labels)):
@@ -363,6 +440,40 @@ class FancySlider(tk.Canvas):
         self._var.set(val)
         if self._cmd:
             self._cmd(str(val))
+
+
+class PulsingDot(tk.Canvas):
+    """Status dot with smooth cosine pulse animation."""
+    def __init__(self, parent, color, bg=BG, size=12, **kw):
+        super().__init__(parent, width=size, height=size,
+                        bg=bg, highlightthickness=0, **kw)
+        self._color = color
+        self._bg    = bg
+        self._phase = 0.0
+        self.create_oval(1, 1, size-1, size-1, fill=color, outline="", tags="d")
+        self._tick()
+
+    def _blend(self, t):
+        def p(c): return int(c[1:3],16), int(c[3:5],16), int(c[5:7],16)
+        fr, fg, fb = p(self._color)
+        br, bg2, bb = p(self._bg)
+        r = int(fr + (br-fr)*(1-t))
+        g = int(fg + (bg2-fg)*(1-t))
+        b = int(fb + (bb-fb)*(1-t))
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def _tick(self):
+        if not self.winfo_exists():
+            return
+        import math
+        # opacity oscillates 0.35 … 1.0 with 2 s period
+        t = 0.35 + 0.65 * (1 + math.cos(self._phase * 2 * math.pi)) / 2
+        self.itemconfig("d", fill=self._blend(t))
+        self._phase = (self._phase + 0.025) % 1.0
+        self.after(50, self._tick)
+
+    def set_color(self, color):
+        self._color = color
 
 
 class App(tk.Tk):
@@ -1122,12 +1233,10 @@ class App(tk.Tk):
 
     # ── Helpers ───────────────────────────────────────────────────────────────
     def _dot(self, parent, color):
-        c = tk.Canvas(parent, width=12, height=12, bg=BG, highlightthickness=0)
-        c.create_oval(1, 1, 11, 11, fill=color, outline="", tags="d")
-        return c
+        return PulsingDot(parent, color, bg=BG)
 
     def _set_dot(self, canvas, color):
-        canvas.itemconfig("d", fill=color)
+        canvas.set_color(color)
 
     def _on_intensity_change(self, v):
         self._intensity = float(v) / 100
