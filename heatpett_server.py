@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.2.7"
+SERVER_VERSION  = "v3.2.8"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -401,16 +401,9 @@ class FancySlider(tk.Canvas):
         t = (x - r) / max(self._bw - 2 * r, 1)
         return self._from + max(0.0, min(1.0, t)) * (self._to - self._from)
 
-    def _pill(self, x1, y1, x2, y2, color):
-        rr = (y2 - y1) // 2
-        if x2 - x1 <= 0:
-            return
-        if x2 - x1 <= 2 * rr:
-            self.create_oval(x1, y1, x1 + (x2 - x1), y2, fill=color, outline=color)
-        else:
-            self.create_oval(x1, y1, x1 + 2*rr, y2, fill=color, outline=color)
-            self.create_oval(x2 - 2*rr, y1, x2, y2, fill=color, outline=color)
-            self.create_rectangle(x1 + rr, y1, x2 - rr, y2, fill=color, outline=color)
+    @staticmethod
+    def _hx(c):
+        return int(c[1:3],16), int(c[3:5],16), int(c[5:7],16)
 
     def _redraw(self):
         if self._bw <= 2:
@@ -420,11 +413,54 @@ class FancySlider(tk.Canvas):
         cx  = int(self._val_to_x(val))
         cy  = self._bh // 2
         r   = self._tr
-        y1, y2 = cy - self._th // 2, cy + self._th // 2
-        self._pill(r, y1, self._bw - r, y2, "#1a2548")
-        self._pill(r, y1, cx, y2, ACCENT)
-        self.create_oval(cx - r, cy - r, cx + r, cy + r,
-                         fill="white", outline=ACCENT, width=2)
+        if PIL_OK:
+            try:
+                self._redraw_pil(cx, cy, r)
+                return
+            except Exception:
+                pass
+        # Fallback: aliased drawing
+        y1, y2 = cy - self._th//2, cy + self._th//2
+        rr = (y2-y1)//2
+        for x1, x2, col in [(r, self._bw-r, "#1a2548"), (r, cx, ACCENT)]:
+            if x2-x1 > 0:
+                self.create_oval(x1, y1, x1+2*rr, y2, fill=col, outline=col)
+                self.create_oval(x2-2*rr, y1, x2, y2, fill=col, outline=col)
+                self.create_rectangle(x1+rr, y1, x2-rr, y2, fill=col, outline=col)
+        self.create_oval(cx-r, cy-r, cx+r, cy+r, fill="white", outline=ACCENT, width=2)
+
+    def _redraw_pil(self, cx, cy, r):
+        sc = 3
+        W, H  = self._bw * sc, self._bh * sc
+        img   = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d     = _PilDraw.Draw(img)
+        th_s  = self._th * sc
+        r_s   = r * sc
+        cx_s  = cx * sc
+        cy_s  = cy * sc
+        y1_s  = cy_s - th_s // 2
+        y2_s  = cy_s + th_s // 2
+        x_end = (self._bw - r) * sc
+        # Inactive track
+        d.rounded_rectangle([r_s, y1_s, x_end, y2_s],
+                            radius=th_s//2, fill=self._hx("#1a2548")+(255,))
+        # Active track
+        if cx_s > r_s:
+            d.rounded_rectangle([r_s, y1_s, min(cx_s, x_end), y2_s],
+                                radius=th_s//2, fill=self._hx(ACCENT)+(255,))
+        # Thumb — white circle with accent border
+        bw = max(2, sc)
+        d.ellipse([cx_s-r_s, cy_s-r_s, cx_s+r_s, cy_s+r_s],
+                  fill=(255,255,255,255),
+                  outline=self._hx(ACCENT)+(255,), width=bw*2)
+        img  = img.resize((self._bw, self._bh), Image.LANCZOS)
+        bg   = self.cget("bg")
+        base = Image.new("RGBA", (self._bw, self._bh),
+                         self._hx(bg)+(255,))
+        base.alpha_composite(img)
+        photo = ImageTk.PhotoImage(base.convert("RGB"))
+        self._photo = photo
+        self.create_image(0, 0, anchor="nw", image=photo)
 
     def _on_down(self, e):
         self._update(e.x)
