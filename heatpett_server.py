@@ -57,7 +57,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.1.9"
+SERVER_VERSION  = "v3.2.0"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -177,6 +177,81 @@ class RoundedBtn(tk.Canvas):
         self._draw(fill)
         self.bind("<Enter>", lambda _: self._draw(self._hover))
         self.bind("<Leave>", lambda _: self._draw(self._fill))
+
+
+class FancySlider(tk.Canvas):
+    """Custom slider: blue fill left of thumb, dark track right."""
+    def __init__(self, parent, variable, from_=0, to=100, command=None,
+                 track_h=4, thumb_r=8, p_bg=BG, **kw):
+        bh = thumb_r * 2 + 8
+        super().__init__(parent, height=bh,
+                         bg=p_bg, highlightthickness=0, cursor="hand2", **kw)
+        self._var  = variable
+        self._from = from_
+        self._to   = to
+        self._cmd  = command
+        self._th   = track_h
+        self._tr   = thumb_r
+        self._bw   = 1
+        self._bh   = bh
+        self.bind("<Configure>",       self._on_cfg)
+        self.bind("<ButtonPress-1>",   self._on_down)
+        self.bind("<B1-Motion>",       self._on_move)
+        self.bind("<ButtonRelease-1>", self._on_up)
+        self._var.trace_add("write", lambda *_: self._redraw())
+
+    def _on_cfg(self, e):
+        self._bw, self._bh = e.width, e.height
+        self._redraw()
+
+    def _val_to_x(self, val):
+        r = self._tr
+        return r + (val - self._from) / max(self._to - self._from, 1) * (self._bw - 2 * r)
+
+    def _x_to_val(self, x):
+        r = self._tr
+        t = (x - r) / max(self._bw - 2 * r, 1)
+        return self._from + max(0.0, min(1.0, t)) * (self._to - self._from)
+
+    def _pill(self, x1, y1, x2, y2, color):
+        rr = (y2 - y1) // 2
+        if x2 - x1 <= 0:
+            return
+        if x2 - x1 <= 2 * rr:
+            self.create_oval(x1, y1, x1 + (x2 - x1), y2, fill=color, outline=color)
+        else:
+            self.create_oval(x1, y1, x1 + 2*rr, y2, fill=color, outline=color)
+            self.create_oval(x2 - 2*rr, y1, x2, y2, fill=color, outline=color)
+            self.create_rectangle(x1 + rr, y1, x2 - rr, y2, fill=color, outline=color)
+
+    def _redraw(self):
+        if self._bw <= 2:
+            return
+        self.delete("all")
+        val = self._var.get()
+        cx  = int(self._val_to_x(val))
+        cy  = self._bh // 2
+        r   = self._tr
+        y1, y2 = cy - self._th // 2, cy + self._th // 2
+        self._pill(r, y1, self._bw - r, y2, "#1a2235")
+        self._pill(r, y1, cx, y2, ACCENT)
+        self.create_oval(cx - r, cy - r, cx + r, cy + r,
+                         fill="white", outline=ACCENT, width=2)
+
+    def _on_down(self, e):
+        self._update(e.x)
+
+    def _on_move(self, e):
+        self._update(e.x)
+
+    def _on_up(self, _):
+        pass
+
+    def _update(self, x):
+        val = self._x_to_val(x)
+        self._var.set(val)
+        if self._cmd:
+            self._cmd(str(val))
 
 
 class App(tk.Tk):
@@ -885,15 +960,10 @@ class App(tk.Tk):
                  font=("Segoe UI", 11, "bold")).pack(side="right")
 
         # ── Slider (eigene Zeile, full-width) ─────────────────────────────────
-        slider_row = tk.Frame(card, bg=BG)
-        slider_row.pack(fill="x", padx=12, pady=(0, 14))
-        tk.Scale(slider_row, from_=0, to=100, orient="horizontal",
-                 variable=self._int_var, bg=BG, fg=ACCENT,
-                 troughcolor="#1a2235", highlightthickness=0,
-                 activebackground=ACCENT, sliderlength=20, bd=0,
-                 showvalue=False,
-                 command=self._on_intensity_change
-                 ).pack(fill="x", expand=True)
+        FancySlider(card, variable=self._int_var, from_=0, to=100,
+                    command=self._on_intensity_change,
+                    track_h=4, thumb_r=9, p_bg=BG
+                    ).pack(fill="x", padx=16, pady=(0, 14))
 
         # ── Separator ─────────────────────────────────────────────────────────
         tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
