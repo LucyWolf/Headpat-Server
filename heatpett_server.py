@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.2.8"
+SERVER_VERSION  = "v3.2.9"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -430,7 +430,7 @@ class FancySlider(tk.Canvas):
         self.create_oval(cx-r, cy-r, cx+r, cy+r, fill="white", outline=ACCENT, width=2)
 
     def _redraw_pil(self, cx, cy, r):
-        sc = 3
+        sc    = 6
         W, H  = self._bw * sc, self._bh * sc
         img   = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         d     = _PilDraw.Draw(img)
@@ -441,22 +441,24 @@ class FancySlider(tk.Canvas):
         y1_s  = cy_s - th_s // 2
         y2_s  = cy_s + th_s // 2
         x_end = (self._bw - r) * sc
+        ac    = self._hx(ACCENT) + (255,)
         # Inactive track
         d.rounded_rectangle([r_s, y1_s, x_end, y2_s],
-                            radius=th_s//2, fill=self._hx("#1a2548")+(255,))
+                            radius=th_s // 2,
+                            fill=self._hx("#1a2548") + (255,))
         # Active track
         if cx_s > r_s:
             d.rounded_rectangle([r_s, y1_s, min(cx_s, x_end), y2_s],
-                                radius=th_s//2, fill=self._hx(ACCENT)+(255,))
-        # Thumb — white circle with accent border
-        bw = max(2, sc)
-        d.ellipse([cx_s-r_s, cy_s-r_s, cx_s+r_s, cy_s+r_s],
-                  fill=(255,255,255,255),
-                  outline=self._hx(ACCENT)+(255,), width=bw*2)
-        img  = img.resize((self._bw, self._bh), Image.LANCZOS)
-        bg   = self.cget("bg")
-        base = Image.new("RGBA", (self._bw, self._bh),
-                         self._hx(bg)+(255,))
+                                radius=th_s // 2, fill=ac)
+        # Thumb: outer accent disc then inner white disc (avoids aliased outline)
+        bw_s = sc * 2
+        d.ellipse([cx_s - r_s, cy_s - r_s, cx_s + r_s, cy_s + r_s], fill=ac)
+        d.ellipse([cx_s - r_s + bw_s, cy_s - r_s + bw_s,
+                   cx_s + r_s - bw_s, cy_s + r_s - bw_s],
+                  fill=(255, 255, 255, 255))
+        img   = img.resize((self._bw, self._bh), Image.LANCZOS)
+        bg    = self.cget("bg")
+        base  = Image.new("RGBA", (self._bw, self._bh), self._hx(bg) + (255,))
         base.alpha_composite(img)
         photo = ImageTk.PhotoImage(base.convert("RGB"))
         self._photo = photo
