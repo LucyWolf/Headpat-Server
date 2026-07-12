@@ -57,7 +57,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.2.1"
+SERVER_VERSION  = "v3.2.2"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -307,6 +307,7 @@ class App(tk.Tk):
         else:
             self.geometry(f"+{(sw-w)//2}+{(sh-h)//2}")
         self.after(200, self._fix_taskbar)
+        self.after(100, self._apply_rounded_corners)
         self._refresh_ports()
         self._start_osc()
         self._tick()
@@ -774,6 +775,18 @@ class App(tk.Tk):
         self.wm_withdraw()
         self.after(50, self.wm_deiconify)
 
+    def _apply_rounded_corners(self):
+        if os.name != "nt":
+            return
+        try:
+            import ctypes
+            hwnd = ctypes.windll.user32.GetAncestor(self.winfo_id(), 2)
+            # DWMWA_WINDOW_CORNER_PREFERENCE=33, DWMWCP_ROUND=2 (Windows 11)
+            val = ctypes.c_int(2)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 33, ctypes.byref(val), ctypes.sizeof(val))
+        except Exception:
+            pass
+
     # ── Linux serial port permissions ────────────────────────────────────────
     def _check_linux_serial_perms(self):
         udev_rule = "/etc/udev/rules.d/99-headpat.rules"
@@ -987,12 +1000,12 @@ class App(tk.Tk):
 
         _m = self._vib_mode
         btn_prox = RoundedBtn(mode_row, "Proximity", lambda: _select_mode(0),
-                              w=92, h=30, r=10, p_bg=BG,
+                              w=96, h=32, r=16, p_bg=BG,
                               fill=ACCENT if _m == 0 else BG_BTN,
                               fg="white" if _m == 0 else FG,
                               hover=ACCENT if _m == 0 else BG_BTN_A)
         btn_trig = RoundedBtn(mode_row, "Trigger", lambda: _select_mode(1),
-                              w=74, h=30, r=10, p_bg=BG,
+                              w=78, h=32, r=16, p_bg=BG,
                               fill=ACCENT if _m == 1 else BG_BTN,
                               fg="white" if _m == 1 else FG,
                               hover=ACCENT if _m == 1 else BG_BTN_A)
@@ -1030,7 +1043,7 @@ class App(tk.Tk):
 
     def _mkbtn(self, parent, text, cmd):
         return RoundedBtn(parent, text, cmd,
-                          w=44, h=34, r=10, p_bg=BG,
+                          w=46, h=36, r=18, p_bg=BG,
                           fill=BG_BTN, fg=FG, hover=BG_BTN_A, press=ACCENT)
 
     # ── Drag ──────────────────────────────────────────────────────────────────
