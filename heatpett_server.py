@@ -36,18 +36,19 @@ except ImportError:
     PIL_OK = False
 
 # ── Colors ────────────────────────────────────────────────────────────────────
-BG       = "#0d1117"
-BG_TITLE = "#080c11"
-BG_BTN   = "#1a2f4a"
-BG_BTN_A = "#1e3a5a"
-BORDER   = "#1e2d42"
-FG       = "#dde6f0"
-FG_DIM   = "#4a5568"
-ACCENT   = "#00b4ff"
-GREEN    = "#00e5a0"
-RED      = "#e5534b"
+BG       = "#182035"
+BG_TITLE = "#202a45"
+BG_BTN   = "#161d33"
+BG_BTN_A = "#1e2845"
+BORDER   = "#2a3350"
+FG       = "#d5d9ec"
+FG_DIM   = "#9aa2be"
+ACCENT   = "#6d7bd6"
+GREEN    = "#4dbd8a"
+RED      = "#d6706d"
 YELLOW   = "#c9a227"
-OSC_COL  = "#2a4060"
+OSC_COL  = "#3a4570"
+SEG_CONT = "#131a2d"
 
 # ── Config ────────────────────────────────────────────────────────────────────
 BAUD          = 115200
@@ -57,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.2.3"
+SERVER_VERSION  = "v3.2.4"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -137,21 +138,25 @@ def _t(key, **kwargs):
 class RoundedBtn(tk.Canvas):
     """Rounded rectangle button using Canvas."""
     def __init__(self, parent, text, command, w=80, h=30, r=10,
-                 fill=BG_BTN, fg=FG, hover=BG_BTN_A, press=None, p_bg=BG, **kw):
+                 fill=BG_BTN, fg=FG, hover=BG_BTN_A, press=None,
+                 hover_fg=None, font_size=10, border_col=None, p_bg=BG, **kw):
         super().__init__(parent, width=w, height=h,
                          bg=p_bg, highlightthickness=0, cursor="hand2", **kw)
-        self._text = text
-        self._cmd  = command
+        self._text       = text
+        self._cmd        = command
         self._bw, self._bh, self._br = w, h, r
         self._fill, self._fg, self._hover = fill, fg, hover
-        self._press = press or hover
-        self._draw(fill)
-        self.bind("<Enter>",          lambda _: self._draw(self._hover))
-        self.bind("<Leave>",          lambda _: self._draw(self._fill))
+        self._press      = press or hover
+        self._hover_fg   = hover_fg if hover_fg is not None else fg
+        self._font_size  = font_size
+        self._border_col = border_col
+        self._draw(fill, fg)
+        self.bind("<Enter>",          lambda _: self._draw(self._hover, self._hover_fg))
+        self.bind("<Leave>",          lambda _: self._draw(self._fill,  self._fg))
         self.bind("<ButtonPress-1>",   self._on_press)
         self.bind("<ButtonRelease-1>", self._on_release)
 
-    def _draw(self, color):
+    def _draw(self, color, text_fg=None):
         self.delete("all")
         r = min(self._br, self._bw // 2, self._bh // 2)
         w, h = self._bw, self._bh
@@ -163,24 +168,126 @@ class RoundedBtn(tk.Canvas):
             0,   h,    0,   h-r,
             0,   r,    0,   0,
         ]
-        self.create_polygon(pts, smooth=True, fill=color, outline=color)
+        if self._border_col and color == self._fill:
+            self.create_polygon(pts, smooth=True, fill=color, outline=self._border_col)
+        else:
+            self.create_polygon(pts, smooth=True, fill=color, outline=color)
         self.create_text(w//2, h//2, text=self._text,
-                         fill=self._fg, font=("Segoe UI", 10))
+                         fill=text_fg if text_fg is not None else self._fg,
+                         font=("Segoe UI", self._font_size))
 
     def _on_press(self, _):
-        self._draw(self._press)
+        self._draw(self._press, self._hover_fg)
         self._cmd()
 
     def _on_release(self, _):
-        self._draw(self._fill)
+        self._draw(self._fill, self._fg)
 
-    def set_style(self, fill, fg, hover=None):
+    def set_style(self, fill, fg, hover=None, hover_fg=None):
         self._fill, self._fg = fill, fg
-        self._hover = hover or fill
-        self._press = hover or fill
-        self._draw(fill)
-        self.bind("<Enter>", lambda _: self._draw(self._hover))
-        self.bind("<Leave>", lambda _: self._draw(self._fill))
+        self._hover    = hover or fill
+        self._press    = hover or fill
+        self._hover_fg = hover_fg if hover_fg is not None else fg
+        self._draw(fill, fg)
+        self.bind("<Enter>", lambda _: self._draw(self._hover, self._hover_fg))
+        self.bind("<Leave>", lambda _: self._draw(self._fill,  self._fg))
+
+
+class SegmentedControl(tk.Canvas):
+    """Pill-style segmented control with a dark container background."""
+    _SEG_HOVER = "#1e2a48"
+    _SEG_DIM   = "#8a92b0"
+    _SEG_HDIM  = "#c0c6df"
+
+    def __init__(self, parent, labels, command, active=0,
+                 seg_w=90, h=32, r_cont=9, r_seg=7, pad=3, p_bg=BG, **kw):
+        self._labels  = labels
+        self._active  = active
+        self._cmd     = command
+        self._seg_w   = seg_w
+        self._h       = h
+        self._r_cont  = r_cont
+        self._r_seg   = r_seg
+        self._pad     = pad
+        self._hover   = -1
+        n             = len(labels)
+        total_w       = pad + seg_w * n + pad * (n - 1) + pad
+        total_h       = pad * 2 + h
+        super().__init__(parent, width=total_w, height=total_h,
+                         bg=p_bg, highlightthickness=0, cursor="hand2", **kw)
+        self._tw = total_w
+        self._th = total_h
+        self._draw()
+        self.bind("<ButtonPress-1>", self._on_click)
+        self.bind("<Motion>",        self._on_motion)
+        self.bind("<Leave>",         self._on_leave)
+
+    def _seg_x(self, i):
+        return self._pad + i * (self._seg_w + self._pad)
+
+    def _draw(self):
+        self.delete("all")
+        w, h, r = self._tw, self._th, self._r_cont
+        pts = [r,0, w-r,0, w,0, w,r, w,h-r, w,h, w-r,h, r,h, 0,h, 0,h-r, 0,r, 0,0]
+        self.create_polygon(pts, smooth=True, fill=SEG_CONT, outline=SEG_CONT)
+        for i, label in enumerate(self._labels):
+            x1 = self._seg_x(i)
+            y1 = self._pad
+            x2 = x1 + self._seg_w
+            y2 = y1 + self._h
+            is_active = i == self._active
+            is_hover  = i == self._hover and not is_active
+            if is_active:
+                bg_c  = ACCENT
+                fg_c  = "white"
+                bold  = "bold"
+            elif is_hover:
+                bg_c  = self._SEG_HOVER
+                fg_c  = self._SEG_HDIM
+                bold  = "normal"
+            else:
+                bg_c = fg_c = bold = None
+            if bg_c:
+                r2 = self._r_seg
+                sx, sy = x2 - x1, y2 - y1
+                p2 = [x1+r2,y1, x2-r2,y1, x2,y1, x2,y1+r2,
+                      x2,y2-r2, x2,y2, x2-r2,y2, x1+r2,y2,
+                      x1,y2, x1,y2-r2, x1,y1+r2, x1,y1]
+                self.create_polygon(p2, smooth=True, fill=bg_c, outline=bg_c)
+            cx = x1 + self._seg_w // 2
+            cy = y1 + self._h // 2
+            self.create_text(cx, cy, text=label,
+                             fill=fg_c or self._SEG_DIM,
+                             font=("Segoe UI", 10, bold or "normal"))
+
+    def _hit(self, x):
+        for i in range(len(self._labels)):
+            x1 = self._seg_x(i)
+            if x1 <= x <= x1 + self._seg_w:
+                return i
+        return -1
+
+    def _on_click(self, e):
+        seg = self._hit(e.x)
+        if 0 <= seg != self._active:
+            self._active = seg
+            self._draw()
+            self._cmd(seg)
+
+    def _on_motion(self, e):
+        seg = self._hit(e.x)
+        if seg != self._hover:
+            self._hover = seg
+            self._draw()
+
+    def _on_leave(self, _):
+        if self._hover != -1:
+            self._hover = -1
+            self._draw()
+
+    def set_active(self, i):
+        self._active = i
+        self._draw()
 
 
 class FancySlider(tk.Canvas):
@@ -237,7 +344,7 @@ class FancySlider(tk.Canvas):
         cy  = self._bh // 2
         r   = self._tr
         y1, y2 = cy - self._th // 2, cy + self._th // 2
-        self._pill(r, y1, self._bw - r, y2, "#1a2235")
+        self._pill(r, y1, self._bw - r, y2, "#1e2848")
         self._pill(r, y1, cx, y2, ACCENT)
         self.create_oval(cx - r, cy - r, cx + r, cy + r,
                          fill="white", outline=ACCENT, width=2)
@@ -906,19 +1013,19 @@ class App(tk.Tk):
         name_lbl.bind("<ButtonPress-1>", self._drag_start)
         name_lbl.bind("<B1-Motion>",     self._drag_move)
 
-        close = tk.Label(tb, text="×", bg=BG_TITLE, fg=FG_DIM,
-                         font=("Segoe UI", 16), cursor="hand2", padx=12)
-        close.pack(side="right", pady=4)
-        close.bind("<Button-1>", lambda _: self._on_close())
-        close.bind("<Enter>",    lambda _: close.config(fg=RED, bg="#3d1210"))
-        close.bind("<Leave>",    lambda _: close.config(fg=FG_DIM, bg=BG_TITLE))
+        RoundedBtn(tb, "✕", self._on_close,
+                   w=28, h=28, r=7, font_size=13,
+                   fill=BG_TITLE, fg=FG_DIM,
+                   hover="#452525", hover_fg=RED,
+                   press="#5a2525", p_bg=BG_TITLE
+                   ).pack(side="right", padx=(0, 6), pady=8)
 
-        gear = tk.Label(tb, text="⚙", bg=BG_TITLE, fg=FG_DIM,
-                        font=("Segoe UI", 13), cursor="hand2", padx=10)
-        gear.pack(side="right", pady=6)
-        gear.bind("<Button-1>", lambda e: self._open_settings(e))
-        gear.bind("<Enter>",    lambda _: gear.config(fg=ACCENT))
-        gear.bind("<Leave>",    lambda _: gear.config(fg=FG_DIM))
+        RoundedBtn(tb, "⚙", self._open_settings,
+                   w=28, h=28, r=7, font_size=13,
+                   fill=BG_TITLE, fg=FG_DIM,
+                   hover="#2c3a58", hover_fg=FG,
+                   press="#2c3a58", p_bg=BG_TITLE
+                   ).pack(side="right", padx=2, pady=8)
 
         self._badge_lbl = tk.Label(tb, text="↑", bg=BG_TITLE, fg=YELLOW,
                                    font=("Segoe UI", 13, "bold"), cursor="hand2", padx=6)
@@ -926,14 +1033,12 @@ class App(tk.Tk):
         self._badge_lbl.bind("<Enter>",    lambda _: self._badge_lbl.config(fg=GREEN))
         self._badge_lbl.bind("<Leave>",    lambda _: self._badge_lbl.config(fg=YELLOW))
 
-        # Console / Log button
-        self._log_btn = tk.Label(tb, text="≡", bg=BG_TITLE, fg=FG_DIM,
-                                 font=("Segoe UI", 15), cursor="hand2", padx=10)
-        self._log_btn.pack(side="right", pady=6)
-        self._log_btn.bind("<Button-1>", lambda _: self._toggle_console())
-        self._log_btn.bind("<Enter>",    lambda _: self._log_btn.config(fg=ACCENT))
-        self._log_btn.bind("<Leave>",    lambda _: self._log_btn.config(
-            fg=GREEN if (self._console_win and self._console_win.winfo_exists()) else FG_DIM))
+        self._log_btn = RoundedBtn(tb, "≡", self._toggle_console,
+                                   w=28, h=28, r=7, font_size=15,
+                                   fill=BG_TITLE, fg=FG_DIM,
+                                   hover="#2c3a58", hover_fg=FG,
+                                   press="#2c3a58", p_bg=BG_TITLE)
+        self._log_btn.pack(side="right", padx=2, pady=8)
 
         # ── Thin accent line under title ──────────────────────────────────────
         tk.Frame(self, bg=ACCENT, height=2).pack(fill="x")
@@ -991,31 +1096,15 @@ class App(tk.Tk):
         tk.Label(mode_row, text="Modus", bg=BG, fg=FG,
                  font=("Segoe UI", 11)).pack(side="left")
 
-        self._mode_btns = []
-
         def _select_mode(m):
             self._vib_mode = m
             self._debounce_save()
-            for i, b in enumerate(self._mode_btns):
-                if i == m:
-                    b.set_style(ACCENT, "white", hover=ACCENT)
-                else:
-                    b.set_style(BG_BTN, FG, hover=BG_BTN_A)
 
-        _m = self._vib_mode
-        btn_prox = RoundedBtn(mode_row, "Proximity", lambda: _select_mode(0),
-                              w=96, h=32, r=16, p_bg=BG,
-                              fill=ACCENT if _m == 0 else BG_BTN,
-                              fg="white" if _m == 0 else FG,
-                              hover=ACCENT if _m == 0 else BG_BTN_A)
-        btn_trig = RoundedBtn(mode_row, "Trigger", lambda: _select_mode(1),
-                              w=78, h=32, r=16, p_bg=BG,
-                              fill=ACCENT if _m == 1 else BG_BTN,
-                              fg="white" if _m == 1 else FG,
-                              hover=ACCENT if _m == 1 else BG_BTN_A)
-        btn_trig.pack(side="right")
-        btn_prox.pack(side="right", padx=(0, 6))
-        self._mode_btns = [btn_prox, btn_trig]
+        seg = SegmentedControl(mode_row, ["Proximity", "Trigger"],
+                               command=_select_mode,
+                               active=self._vib_mode,
+                               seg_w=90, h=32, r_cont=9, r_seg=7, pad=3, p_bg=BG)
+        seg.pack(side="right")
 
         # ── Separator ─────────────────────────────────────────────────────────
         tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
@@ -1047,8 +1136,10 @@ class App(tk.Tk):
 
     def _mkbtn(self, parent, text, cmd):
         return RoundedBtn(parent, text, cmd,
-                          w=46, h=36, r=18, p_bg=BG,
-                          fill=BG_BTN, fg=FG, hover=BG_BTN_A, press=ACCENT)
+                          w=50, h=36, r=8, p_bg=BG,
+                          fill=BG_BTN, fg=FG,
+                          hover=ACCENT, hover_fg="white",
+                          press=ACCENT, border_col=BORDER)
 
     # ── Drag ──────────────────────────────────────────────────────────────────
     def _drag_start(self, e):
@@ -1070,7 +1161,7 @@ class App(tk.Tk):
         if self._console_win and self._console_win.winfo_exists():
             self._console_win.destroy()
             self._console_win = None
-            self._log_btn.config(fg=FG_DIM)
+            self._log_btn.set_style(BG_TITLE, FG_DIM, hover="#2c3a58")
         else:
             self._open_console()
 
@@ -1142,7 +1233,7 @@ class App(tk.Tk):
         self._console_text.see("end")
         self._console_text.config(state="disabled")
 
-        self._log_btn.config(fg=GREEN)
+        self._log_btn.set_style(BG_TITLE, GREEN, hover="#2c3a58")
         win.protocol("WM_DELETE_WINDOW", self._toggle_console)
 
     def _toggle_verbose(self):
