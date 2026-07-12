@@ -57,7 +57,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.1.5"
+SERVER_VERSION  = "v3.1.6"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -132,6 +132,41 @@ TRANSLATIONS = {
 def _t(key, **kwargs):
     text = TRANSLATIONS.get(_LANG, TRANSLATIONS["de"]).get(key, TRANSLATIONS["de"].get(key, key))
     return text.format(**kwargs) if kwargs else text
+
+
+class RoundedBtn(tk.Canvas):
+    """Rounded rectangle button using Canvas."""
+    def __init__(self, parent, text, command, w=80, h=30, r=10,
+                 fill=BG_BTN, fg=FG, hover=BG_BTN_A, p_bg=BG, **kw):
+        super().__init__(parent, width=w, height=h,
+                         bg=p_bg, highlightthickness=0, cursor="hand2", **kw)
+        self._text = text
+        self._cmd  = command
+        self._w, self._h, self._r = w, h, r
+        self._fill, self._fg, self._hover = fill, fg, hover
+        self._draw(fill)
+        self.bind("<Enter>",    lambda _: self._draw(self._hover))
+        self.bind("<Leave>",    lambda _: self._draw(self._fill))
+        self.bind("<Button-1>", lambda _: self._cmd())
+
+    def _draw(self, color):
+        self.delete("all")
+        r, w, h, c = self._r, self._w, self._h, color
+        self.create_arc(0,     0,     2*r, 2*r, start=90,  extent=90, fill=c, outline=c)
+        self.create_arc(w-2*r, 0,     w,   2*r, start=0,   extent=90, fill=c, outline=c)
+        self.create_arc(0,     h-2*r, 2*r, h,   start=180, extent=90, fill=c, outline=c)
+        self.create_arc(w-2*r, h-2*r, w,   h,   start=270, extent=90, fill=c, outline=c)
+        self.create_rectangle(r, 0, w-r, h, fill=c, outline=c)
+        self.create_rectangle(0, r, w, h-r, fill=c, outline=c)
+        self.create_text(w//2, h//2, text=self._text,
+                         fill=self._fg, font=("Segoe UI", 10))
+
+    def set_style(self, fill, fg, hover=None):
+        self._fill, self._fg = fill, fg
+        self._hover = hover or fill
+        self._draw(fill)
+        self.bind("<Enter>", lambda _: self._draw(self._hover))
+        self.bind("<Leave>", lambda _: self._draw(self._fill))
 
 
 class App(tk.Tk):
@@ -858,24 +893,22 @@ class App(tk.Tk):
             self._vib_mode = m
             self._debounce_save()
             for i, b in enumerate(self._mode_btns):
-                b.config(fg=ACCENT if i == m else FG_DIM,
-                         bg=BG_BTN if i == m else BG)
+                if i == m:
+                    b.set_style(ACCENT, "white", hover=ACCENT)
+                else:
+                    b.set_style(BG_BTN, FG_DIM, hover=BG_BTN_A)
 
         _m = self._vib_mode
-        btn_prox = tk.Button(mode_row, text="Proximity",
-                             command=lambda: _select_mode(0),
-                             bg=BG_BTN if _m == 0 else BG,
-                             fg=ACCENT if _m == 0 else FG_DIM,
-                             activebackground=BG_BTN_A, bd=0, relief="flat",
-                             font=("Segoe UI", 10), padx=12, pady=6,
-                             cursor="hand2")
-        btn_trig = tk.Button(mode_row, text="Trigger",
-                             command=lambda: _select_mode(1),
-                             bg=BG_BTN if _m == 1 else BG,
-                             fg=ACCENT if _m == 1 else FG_DIM,
-                             activebackground=BG_BTN_A, bd=0, relief="flat",
-                             font=("Segoe UI", 10), padx=12, pady=6,
-                             cursor="hand2")
+        btn_prox = RoundedBtn(mode_row, "Proximity", lambda: _select_mode(0),
+                              w=92, h=30, r=10, p_bg=BG,
+                              fill=ACCENT if _m == 0 else BG_BTN,
+                              fg="white" if _m == 0 else FG_DIM,
+                              hover=ACCENT if _m == 0 else BG_BTN_A)
+        btn_trig = RoundedBtn(mode_row, "Trigger", lambda: _select_mode(1),
+                              w=74, h=30, r=10, p_bg=BG,
+                              fill=ACCENT if _m == 1 else BG_BTN,
+                              fg="white" if _m == 1 else FG_DIM,
+                              hover=ACCENT if _m == 1 else BG_BTN_A)
         btn_trig.pack(side="right")
         btn_prox.pack(side="right", padx=(0, 6))
         self._mode_btns = [btn_prox, btn_trig]
@@ -908,11 +941,9 @@ class App(tk.Tk):
         self._debounce_save()
 
     def _mkbtn(self, parent, text, cmd):
-        return tk.Button(parent, text=text, command=cmd,
-                         bg=BG_BTN, fg=FG, activebackground=BG_BTN_A,
-                         activeforeground=FG, bd=0, relief="flat",
-                         font=("Segoe UI", 11, "bold"),
-                         width=6, pady=8, cursor="hand2")
+        return RoundedBtn(parent, text, cmd,
+                          w=44, h=34, r=10, p_bg=BG,
+                          fill=BG_BTN, fg=FG, hover=BG_BTN_A)
 
     # ── Drag ──────────────────────────────────────────────────────────────────
     def _drag_start(self, e):
