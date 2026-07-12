@@ -38,9 +38,9 @@ except ImportError:
 # ── Colors ────────────────────────────────────────────────────────────────────
 BG       = "#0d1117"
 BG_TITLE = "#080c11"
-BG_BTN   = "#0f2440"
-BG_BTN_A = "#163460"
-BORDER   = "#1a2235"
+BG_BTN   = "#1a2f4a"
+BG_BTN_A = "#1e3a5a"
+BORDER   = "#1e2d42"
 FG       = "#dde6f0"
 FG_DIM   = "#4a5568"
 ACCENT   = "#00b4ff"
@@ -57,7 +57,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.2.0"
+SERVER_VERSION  = "v3.2.1"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -983,18 +983,18 @@ class App(tk.Tk):
                 if i == m:
                     b.set_style(ACCENT, "white", hover=ACCENT)
                 else:
-                    b.set_style(BG_BTN, FG_DIM, hover=BG_BTN_A)
+                    b.set_style(BG_BTN, FG, hover=BG_BTN_A)
 
         _m = self._vib_mode
         btn_prox = RoundedBtn(mode_row, "Proximity", lambda: _select_mode(0),
                               w=92, h=30, r=10, p_bg=BG,
                               fill=ACCENT if _m == 0 else BG_BTN,
-                              fg="white" if _m == 0 else FG_DIM,
+                              fg="white" if _m == 0 else FG,
                               hover=ACCENT if _m == 0 else BG_BTN_A)
         btn_trig = RoundedBtn(mode_row, "Trigger", lambda: _select_mode(1),
                               w=74, h=30, r=10, p_bg=BG,
                               fill=ACCENT if _m == 1 else BG_BTN,
-                              fg="white" if _m == 1 else FG_DIM,
+                              fg="white" if _m == 1 else FG,
                               hover=ACCENT if _m == 1 else BG_BTN_A)
         btn_trig.pack(side="right")
         btn_prox.pack(side="right", padx=(0, 6))
