@@ -1427,7 +1427,8 @@ class App(tk.Tk):
             return
 
         val = float(args[0]) if args else 0.0
-        if val < 0.02:
+        stop_at = 0.5 if self._vib_mode == 1 else 0.02
+        if val < stop_at:
             self._send_motor(0, 0)
             return
         if self._vib_mode == 1:
@@ -1494,8 +1495,8 @@ class App(tk.Tk):
             self._set_dot(self._vrc_dot, RED)
             self._send_motor(0, 0)  # VRC weg → Motoren sofort stoppen
 
-        # Watchdog: kein Motor-Update seit 500ms → stoppen
-        if self._last_motor_nz and now - self._last_motor_nz > 0.5:
+        # Watchdog: kein Motor-Update seit 150ms → stoppen
+        if self._last_motor_nz and now - self._last_motor_nz > 0.15:
             self._last_motor_nz = 0.0
             self._send_motor(0, 0)
 
