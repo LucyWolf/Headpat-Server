@@ -1167,11 +1167,8 @@ class App(tk.Tk):
         self._hp_dot = self._dot(status, RED)
         self._hp_dot.pack(side="left", padx=(6, 0))
 
-        tk.Label(status, text="  |  ", bg=BG, fg=FG_DIM,
-                 font=("Segoe UI", 11)).pack(side="left")
-
         tk.Label(status, text="OSC", bg=BG, fg=FG,
-                 font=("Segoe UI", 11)).pack(side="left")
+                 font=("Segoe UI", 11)).pack(side="left", padx=(18, 0))
         self._vrc_dot = self._dot(status, RED)
         self._vrc_dot.pack(side="left", padx=(6, 0))
 
