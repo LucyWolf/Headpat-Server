@@ -57,7 +57,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.2.2"
+SERVER_VERSION  = "v3.2.3"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -153,13 +153,17 @@ class RoundedBtn(tk.Canvas):
 
     def _draw(self, color):
         self.delete("all")
-        r, w, h, c = self._br, self._bw, self._bh, color
-        self.create_arc(0,     0,     2*r, 2*r, start=90,  extent=90, fill=c, outline=c)
-        self.create_arc(w-2*r, 0,     w,   2*r, start=0,   extent=90, fill=c, outline=c)
-        self.create_arc(0,     h-2*r, 2*r, h,   start=180, extent=90, fill=c, outline=c)
-        self.create_arc(w-2*r, h-2*r, w,   h,   start=270, extent=90, fill=c, outline=c)
-        self.create_rectangle(r, 0, w-r, h, fill=c, outline=c)
-        self.create_rectangle(0, r, w, h-r, fill=c, outline=c)
+        r = min(self._br, self._bw // 2, self._bh // 2)
+        w, h = self._bw, self._bh
+        pts = [
+            r,   0,    w-r, 0,
+            w,   0,    w,   r,
+            w,   h-r,  w,   h,
+            w-r, h,    r,   h,
+            0,   h,    0,   h-r,
+            0,   r,    0,   0,
+        ]
+        self.create_polygon(pts, smooth=True, fill=color, outline=color)
         self.create_text(w//2, h//2, text=self._text,
                          fill=self._fg, font=("Segoe UI", 10))
 
