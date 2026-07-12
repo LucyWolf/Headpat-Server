@@ -35,19 +35,19 @@ try:
 except ImportError:
     PIL_OK = False
 
-# ── Color Palettes ────────────────────────────────────────────────────────────
-_PALETTE_DARK = {
-    "BG":      "#0d1117", "BG_TITLE": "#080c11", "BG_BTN":  "#0f2440",
-    "BG_BTN_A":"#163460", "BORDER":   "#1a2235", "FG":      "#dde6f0",
-    "FG_DIM":  "#4a5568", "ACCENT":   "#00b4ff", "GREEN":   "#00e5a0",
-    "RED":     "#e5534b", "YELLOW":   "#c9a227", "OSC_COL": "#2a4060",
-}
-_PALETTE_LIGHT = {
-    "BG":      "#f4f7fb", "BG_TITLE": "#e8eef5", "BG_BTN":  "#dde5ef",
-    "BG_BTN_A":"#c8d5e5", "BORDER":   "#c5d0dc", "FG":      "#1a2333",
-    "FG_DIM":  "#7a8899", "ACCENT":   "#2563eb", "GREEN":   "#16a34a",
-    "RED":     "#dc2626", "YELLOW":   "#b45309", "OSC_COL": "#8eaac4",
-}
+# ── Colors ────────────────────────────────────────────────────────────────────
+BG       = "#0d1117"
+BG_TITLE = "#080c11"
+BG_BTN   = "#0f2440"
+BG_BTN_A = "#163460"
+BORDER   = "#1a2235"
+FG       = "#dde6f0"
+FG_DIM   = "#4a5568"
+ACCENT   = "#00b4ff"
+GREEN    = "#00e5a0"
+RED      = "#e5534b"
+YELLOW   = "#c9a227"
+OSC_COL  = "#2a4060"
 
 # ── Config ────────────────────────────────────────────────────────────────────
 BAUD          = 115200
@@ -57,7 +57,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.1.4"
+SERVER_VERSION  = "v3.1.5"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -74,22 +74,14 @@ else:
     CONFIG_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(os.path.expanduser("~"), ".config")), "HeadpatServer")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
 
-# ── Theme + Lang (loaded once at startup) ─────────────────────────────────────
-_THEME = "dark"
-_LANG  = "de"
+# ── Lang (loaded once at startup) ─────────────────────────────────────────────
+_LANG = "de"
 try:
     with open(CONFIG_PATH, "r", encoding="utf-8") as _f:
         _cfg_boot = json.load(_f)
-        _THEME = _cfg_boot.get("theme", "dark")
-        _LANG  = _cfg_boot.get("lang",  "de")
+        _LANG = _cfg_boot.get("lang", "de")
 except Exception:
     pass
-
-_p       = _PALETTE_LIGHT if _THEME == "light" else _PALETTE_DARK
-BG       = _p["BG"];       BG_TITLE = _p["BG_TITLE"]; BG_BTN  = _p["BG_BTN"]
-BG_BTN_A = _p["BG_BTN_A"]; BORDER  = _p["BORDER"];   FG      = _p["FG"]
-FG_DIM   = _p["FG_DIM"];   ACCENT  = _p["ACCENT"];   GREEN   = _p["GREEN"]
-RED      = _p["RED"];       YELLOW  = _p["YELLOW"];   OSC_COL = _p["OSC_COL"]
 
 # ── i18n ──────────────────────────────────────────────────────────────────────
 TRANSLATIONS = {
@@ -100,9 +92,6 @@ TRANSLATIONS = {
         "sec_commands": "Dongle Befehle",
         "sec_versions": "Versionen",
         "sec_language": "Sprache",
-        "sec_theme": "Design",
-        "theme_dark": "Dunkel",
-        "theme_light": "Hell",
         "btn_search": "Suchen",
         "btn_check_updates": "Jetzt auf Updates prüfen",
         "btn_refresh": "Aktualisieren",
@@ -124,9 +113,6 @@ TRANSLATIONS = {
         "sec_commands": "Dongle Commands",
         "sec_versions": "Versions",
         "sec_language": "Language",
-        "sec_theme": "Appearance",
-        "theme_dark": "Dark",
-        "theme_light": "Light",
         "btn_search": "Search",
         "btn_check_updates": "Check for Updates Now",
         "btn_refresh": "Refresh",
@@ -729,7 +715,6 @@ class App(tk.Tk):
             "dongle_board": self._board_var.get(),
             "lang":         self._lang_var.get(),
             "vib_mode":     self._vib_mode,
-            "theme":        _THEME,
         }
         try:
             os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -1176,30 +1161,6 @@ class App(tk.Tk):
                      font=("Segoe UI", 10)).pack(side="left")
             tk.Label(r, textvariable=var, bg=BG_TITLE, fg=color,
                      font=("Segoe UI", 10, "bold")).pack(side="right")
-
-        # ── Design ──
-        sep()
-        sec(_t("sec_theme"))
-        theme_row = tk.Frame(win, bg=BG_TITLE)
-        theme_row.pack(fill="x", padx=16, pady=(0, 14))
-        theme_btns = []
-
-        def _select_theme(t):
-            global _THEME
-            _THEME = t
-            self._save_config()
-            self._restart_app()
-
-        for t, lbl in [("dark", _t("theme_dark")), ("light", _t("theme_light"))]:
-            active = (_THEME == t)
-            b = tk.Button(theme_row, text=lbl,
-                          command=lambda tt=t: _select_theme(tt),
-                          bg=BG_BTN if active else BG,
-                          fg=ACCENT if active else FG_DIM,
-                          activebackground=BG_BTN_A, bd=0, relief="flat",
-                          font=("Segoe UI", 10), padx=12, pady=6, cursor="hand2")
-            b.pack(side="left", padx=(0, 6))
-            theme_btns.append(b)
 
         # ── Sprache ──
         sep()
