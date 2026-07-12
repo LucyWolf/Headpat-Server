@@ -1179,6 +1179,35 @@ class App(tk.Tk):
 
         self._lang_var.trace_add("write", _on_lang_change)
 
+        # ── Autostart ──
+        sep()
+        autostart_row = tk.Frame(win, bg=BG_TITLE)
+        autostart_row.pack(fill="x", padx=16, pady=(10, 14))
+        tk.Label(autostart_row, text="Autostart", bg=BG_TITLE, fg=FG,
+                 font=("Segoe UI", 10)).pack(side="left")
+
+        _as_on  = self._autostart_enabled()
+        _as_var = tk.BooleanVar(value=_as_on)
+        _as_lbl = tk.Label(autostart_row,
+                           text="AN" if _as_on else "AUS",
+                           bg=BG_TITLE,
+                           fg=ACCENT if _as_on else FG_DIM,
+                           font=("Segoe UI", 10, "bold"))
+        _as_lbl.pack(side="right", padx=(0, 4))
+
+        def _toggle_autostart():
+            new = not _as_var.get()
+            _as_var.set(new)
+            self._set_autostart(new)
+            _as_lbl.config(text="AN" if new else "AUS",
+                           fg=ACCENT if new else FG_DIM)
+
+        tk.Button(autostart_row, text="Umschalten",
+                  command=_toggle_autostart,
+                  bg=BG_BTN, fg=FG_DIM, activebackground=BG_BTN_A,
+                  bd=0, relief="flat", font=("Segoe UI", 10),
+                  padx=10, pady=6, cursor="hand2").pack(side="right", padx=(0, 8))
+
         sep()
         def _check_now():
             threading.Thread(target=self._check_all_releases, daemon=True).start()
@@ -1188,6 +1217,44 @@ class App(tk.Tk):
                   bg=BG_BTN, fg=FG, activebackground=BG_BTN_A,
                   bd=0, relief="flat", font=("Segoe UI", 10),
                   padx=12, pady=7, cursor="hand2").pack(padx=16, pady=14, fill="x")
+
+    # ── Autostart ─────────────────────────────────────────────────────────────
+    _AUTOSTART_KEY  = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    _AUTOSTART_NAME = "HeadpatServer"
+
+    def _autostart_cmd(self):
+        if getattr(sys, "frozen", False):
+            return f'"{sys.executable}"'
+        return f'"{sys.executable}" "{os.path.abspath(__file__)}"'
+
+    def _autostart_enabled(self):
+        if os.name != "nt":
+            return False
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, self._AUTOSTART_KEY) as k:
+                winreg.QueryValueEx(k, self._AUTOSTART_NAME)
+            return True
+        except Exception:
+            return False
+
+    def _set_autostart(self, enable: bool):
+        if os.name != "nt":
+            return
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, self._AUTOSTART_KEY,
+                                0, winreg.KEY_SET_VALUE) as k:
+                if enable:
+                    winreg.SetValueEx(k, self._AUTOSTART_NAME, 0,
+                                      winreg.REG_SZ, self._autostart_cmd())
+                else:
+                    try:
+                        winreg.DeleteValue(k, self._AUTOSTART_NAME)
+                    except FileNotFoundError:
+                        pass
+        except Exception as e:
+            self._log(f"[AUTOSTART] Fehler: {e}", "error")
 
     def _close_settings(self):
         self._settings_open = False
