@@ -57,7 +57,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.1.7"
+SERVER_VERSION  = "v3.1.8"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -137,17 +137,19 @@ def _t(key, **kwargs):
 class RoundedBtn(tk.Canvas):
     """Rounded rectangle button using Canvas."""
     def __init__(self, parent, text, command, w=80, h=30, r=10,
-                 fill=BG_BTN, fg=FG, hover=BG_BTN_A, p_bg=BG, **kw):
+                 fill=BG_BTN, fg=FG, hover=BG_BTN_A, press=None, p_bg=BG, **kw):
         super().__init__(parent, width=w, height=h,
                          bg=p_bg, highlightthickness=0, cursor="hand2", **kw)
         self._text = text
         self._cmd  = command
         self._bw, self._bh, self._br = w, h, r
         self._fill, self._fg, self._hover = fill, fg, hover
+        self._press = press or hover
         self._draw(fill)
-        self.bind("<Enter>",    lambda _: self._draw(self._hover))
-        self.bind("<Leave>",    lambda _: self._draw(self._fill))
-        self.bind("<Button-1>", lambda _: self._cmd())
+        self.bind("<Enter>",          lambda _: self._draw(self._hover))
+        self.bind("<Leave>",          lambda _: self._draw(self._fill))
+        self.bind("<ButtonPress-1>",   self._on_press)
+        self.bind("<ButtonRelease-1>", self._on_release)
 
     def _draw(self, color):
         self.delete("all")
@@ -161,9 +163,17 @@ class RoundedBtn(tk.Canvas):
         self.create_text(w//2, h//2, text=self._text,
                          fill=self._fg, font=("Segoe UI", 10))
 
+    def _on_press(self, _):
+        self._draw(self._press)
+        self._cmd()
+
+    def _on_release(self, _):
+        self._draw(self._fill)
+
     def set_style(self, fill, fg, hover=None):
         self._fill, self._fg = fill, fg
         self._hover = hover or fill
+        self._press = hover or fill
         self._draw(fill)
         self.bind("<Enter>", lambda _: self._draw(self._hover))
         self.bind("<Leave>", lambda _: self._draw(self._fill))
@@ -943,7 +953,7 @@ class App(tk.Tk):
     def _mkbtn(self, parent, text, cmd):
         return RoundedBtn(parent, text, cmd,
                           w=44, h=34, r=10, p_bg=BG,
-                          fill=BG_BTN, fg=FG, hover=BG_BTN_A)
+                          fill=BG_BTN, fg=FG, hover=BG_BTN_A, press=ACCENT)
 
     # ── Drag ──────────────────────────────────────────────────────────────────
     def _drag_start(self, e):
