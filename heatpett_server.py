@@ -1176,9 +1176,6 @@ class App(tk.Tk):
                                  font=("Segoe UI", 11))
         self._bat_lbl.pack(side="right")
 
-        # ── Separator ─────────────────────────────────────────────────────────
-        tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
-
         # ── Intensity label + % ───────────────────────────────────────────────
         int_label_row = tk.Frame(card, bg=BG)
         int_label_row.pack(fill="x", padx=20, pady=(18, 2))
@@ -1195,9 +1192,6 @@ class App(tk.Tk):
                     track_h=4, thumb_r=9, p_bg=BG
                     ).pack(fill="x", padx=16, pady=(0, 14))
 
-        # ── Separator ─────────────────────────────────────────────────────────
-        tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
-
         # ── Mode row ──────────────────────────────────────────────────────────
         mode_row = tk.Frame(card, bg=BG)
         mode_row.pack(fill="x", padx=20, pady=(14, 14))
@@ -1213,9 +1207,6 @@ class App(tk.Tk):
                                active=self._vib_mode,
                                seg_w=90, h=32, r_cont=9, r_seg=7, pad=3, p_bg=BG)
         seg.pack(side="right")
-
-        # ── Separator ─────────────────────────────────────────────────────────
-        tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
 
         # ── Test row ──────────────────────────────────────────────────────────
         test_row = tk.Frame(card, bg=BG)
