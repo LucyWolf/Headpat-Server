@@ -57,7 +57,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.1.1"
+SERVER_VERSION  = "v3.1.2"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -146,47 +146,6 @@ TRANSLATIONS = {
 def _t(key, **kwargs):
     text = TRANSLATIONS.get(_LANG, TRANSLATIONS["de"]).get(key, TRANSLATIONS["de"].get(key, key))
     return text.format(**kwargs) if kwargs else text
-
-
-class ToggleSwitch(tk.Canvas):
-    """iOS-style pill toggle switch."""
-    W, H = 46, 26
-
-    def __init__(self, parent, state=False, bg=None, on_toggle=None, **kw):
-        bg = bg or BG_TITLE
-        super().__init__(parent, width=self.W, height=self.H,
-                         bg=bg, highlightthickness=0, cursor="hand2", **kw)
-        self._state = state
-        self._on_toggle = on_toggle
-        self._draw()
-        self.bind("<Button-1>", self._click)
-
-    def _draw(self):
-        self.delete("all")
-        r = self.H // 2
-        color = GREEN if self._state else FG_DIM
-        # Pill background
-        self.create_oval(0, 0, self.H, self.H, fill=color, outline="")
-        self.create_oval(self.W - self.H, 0, self.W, self.H, fill=color, outline="")
-        self.create_rectangle(r, 0, self.W - r, self.H, fill=color, outline="")
-        # Knob
-        pad = 3
-        kx = self.W - self.H + pad if self._state else pad
-        self.create_oval(kx, pad, kx + self.H - 2 * pad, self.H - pad,
-                         fill="white", outline="")
-
-    def _click(self, _=None):
-        self._state = not self._state
-        self._draw()
-        if self._on_toggle:
-            self._on_toggle(self._state)
-
-    def get(self):
-        return self._state
-
-    def set(self, state):
-        self._state = bool(state)
-        self._draw()
 
 
 class App(tk.Tk):
@@ -1288,12 +1247,17 @@ class App(tk.Tk):
         tk.Label(autostart_row, text="Autostart", bg=BG_TITLE, fg=FG,
                  font=("Segoe UI", 10)).pack(side="left")
 
-        def _toggle_autostart(state):
-            self._set_autostart(state)
+        _as_state = [self._autostart_enabled()]
+        _as_dot = self._dot(autostart_row, GREEN if _as_state[0] else FG_DIM)
+        _as_dot.pack(side="right")
+        _as_dot.config(cursor="hand2")
 
-        _as_toggle = ToggleSwitch(autostart_row, state=self._autostart_enabled(),
-                                  bg=BG_TITLE, on_toggle=_toggle_autostart)
-        _as_toggle.pack(side="right")
+        def _toggle_autostart(_=None):
+            _as_state[0] = not _as_state[0]
+            self._set_autostart(_as_state[0])
+            self._set_dot(_as_dot, GREEN if _as_state[0] else FG_DIM)
+
+        _as_dot.bind("<Button-1>", _toggle_autostart)
 
         sep()
         def _check_now():
