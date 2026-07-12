@@ -36,19 +36,19 @@ except ImportError:
     PIL_OK = False
 
 # ── Colors ────────────────────────────────────────────────────────────────────
-BG       = "#182035"
-BG_TITLE = "#202a45"
-BG_BTN   = "#161d33"
-BG_BTN_A = "#1e2845"
-BORDER   = "#2a3350"
-FG       = "#d5d9ec"
-FG_DIM   = "#9aa2be"
-ACCENT   = "#6d7bd6"
-GREEN    = "#4dbd8a"
-RED      = "#d6706d"
-YELLOW   = "#c9a227"
-OSC_COL  = "#3a4570"
-SEG_CONT = "#131a2d"
+BG       = "#0d1220"
+BG_TITLE = "#141c35"
+BG_BTN   = "#1c2748"
+BG_BTN_A = "#253260"
+BORDER   = "#283560"
+FG       = "#edf0fc"
+FG_DIM   = "#a8b2ce"
+ACCENT   = "#818cf8"
+GREEN    = "#3dd68c"
+RED      = "#f06b6b"
+YELLOW   = "#fbbf24"
+OSC_COL  = "#3a4f80"
+SEG_CONT = "#080e1a"
 
 # ── Config ────────────────────────────────────────────────────────────────────
 BAUD          = 115200
@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.2.6"
+SERVER_VERSION  = "v3.2.7"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -421,7 +421,7 @@ class FancySlider(tk.Canvas):
         cy  = self._bh // 2
         r   = self._tr
         y1, y2 = cy - self._th // 2, cy + self._th // 2
-        self._pill(r, y1, self._bw - r, y2, "#1e2848")
+        self._pill(r, y1, self._bw - r, y2, "#1a2548")
         self._pill(r, y1, cx, y2, ACCENT)
         self.create_oval(cx - r, cy - r, cx + r, cy + r,
                          fill="white", outline=ACCENT, width=2)
