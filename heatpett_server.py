@@ -57,7 +57,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.0.8"
+SERVER_VERSION  = "v3.1.0"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -148,6 +148,47 @@ def _t(key, **kwargs):
     return text.format(**kwargs) if kwargs else text
 
 
+class ToggleSwitch(tk.Canvas):
+    """iOS-style pill toggle switch."""
+    W, H = 46, 26
+
+    def __init__(self, parent, state=False, bg=None, on_toggle=None, **kw):
+        bg = bg or BG_TITLE
+        super().__init__(parent, width=self.W, height=self.H,
+                         bg=bg, highlightthickness=0, cursor="hand2", **kw)
+        self._state = state
+        self._on_toggle = on_toggle
+        self._draw()
+        self.bind("<Button-1>", self._click)
+
+    def _draw(self):
+        self.delete("all")
+        r = self.H // 2
+        color = GREEN if self._state else FG_DIM
+        # Pill background
+        self.create_oval(0, 0, self.H, self.H, fill=color, outline="")
+        self.create_oval(self.W - self.H, 0, self.W, self.H, fill=color, outline="")
+        self.create_rectangle(r, 0, self.W - r, self.H, fill=color, outline="")
+        # Knob
+        pad = 3
+        kx = self.W - self.H + pad if self._state else pad
+        self.create_oval(kx, pad, kx + self.H - 2 * pad, self.H - pad,
+                         fill="white", outline="")
+
+    def _click(self, _=None):
+        self._state = not self._state
+        self._draw()
+        if self._on_toggle:
+            self._on_toggle(self._state)
+
+    def get(self):
+        return self._state
+
+    def set(self, state):
+        self._state = bool(state)
+        self._draw()
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -189,7 +230,9 @@ class App(tk.Tk):
 
         self._load_icon()
         self._build()
-        self._int_var.set(self._cfg.get("intensity", 50))
+        _iv = self._cfg.get("intensity", 50)
+        self._int_var.set(_iv)
+        self._int_pct_var.set(f"{int(_iv)}%")
         self.update_idletasks()
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
         w,  h  = self.winfo_width(),       self.winfo_height()
@@ -850,13 +893,16 @@ class App(tk.Tk):
                  font=("Segoe UI", 11)).pack(side="left")
 
         self._int_var = tk.DoubleVar(value=50)
+        self._int_pct_var = tk.StringVar(value="50%")
+        tk.Label(int_row, textvariable=self._int_pct_var, bg=BG, fg=ACCENT,
+                 font=("Segoe UI", 11, "bold"), width=4, anchor="e").pack(side="right")
         tk.Scale(int_row, from_=0, to=100, orient="horizontal",
                  variable=self._int_var, bg=BG, fg=ACCENT,
                  troughcolor="#1a1c24", highlightthickness=0,
                  activebackground=ACCENT, sliderlength=22, bd=0,
-                 showvalue=False, length=230,
+                 showvalue=False,
                  command=self._on_intensity_change
-                 ).pack(side="right")
+                 ).pack(side="right", fill="x", expand=True)
 
         # ── Separator ─────────────────────────────────────────────────────────
         tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
@@ -920,6 +966,7 @@ class App(tk.Tk):
 
     def _on_intensity_change(self, v):
         self._intensity = float(v) / 100
+        self._int_pct_var.set(f"{int(float(v))}%")
         self._debounce_save()
 
     def _mkbtn(self, parent, text, cmd):
@@ -1116,13 +1163,15 @@ class App(tk.Tk):
                   padx=10, pady=6, cursor="hand2").pack(side="left", padx=(6, 0))
 
         is_connected = self._ser is not None
-        tk.Button(conn_row,
+        tk.Button(win,
                   text="Disconnect" if is_connected else "Connect",
                   command=self._toggle_serial,
-                  bg=BG_BTN, fg=RED if is_connected else ACCENT,
-                  activebackground=BG_BTN_A, activeforeground=FG,
-                  bd=0, relief="flat", font=("Segoe UI", 10),
-                  padx=12, pady=6, cursor="hand2").pack(side="left", padx=(10, 0))
+                  bg=RED if is_connected else ACCENT,
+                  fg="white",
+                  activebackground="#b91c1c" if is_connected else "#1d4ed8",
+                  activeforeground="white",
+                  bd=0, relief="flat", font=("Segoe UI", 10, "bold"),
+                  pady=9, cursor="hand2").pack(fill="x", padx=16, pady=(6, 14))
 
         # ── Dongle-Board ──
         sep()
@@ -1227,17 +1276,12 @@ class App(tk.Tk):
         tk.Label(autostart_row, text="Autostart", bg=BG_TITLE, fg=FG,
                  font=("Segoe UI", 10)).pack(side="left")
 
-        _as_state = [self._autostart_enabled()]
-        _as_dot = self._dot(autostart_row, GREEN if _as_state[0] else FG_DIM)
-        _as_dot.pack(side="right")
-        _as_dot.config(cursor="hand2")
+        def _toggle_autostart(state):
+            self._set_autostart(state)
 
-        def _toggle_autostart(_=None):
-            _as_state[0] = not _as_state[0]
-            self._set_autostart(_as_state[0])
-            self._set_dot(_as_dot, GREEN if _as_state[0] else FG_DIM)
-
-        _as_dot.bind("<Button-1>", _toggle_autostart)
+        _as_toggle = ToggleSwitch(autostart_row, state=self._autostart_enabled(),
+                                  bg=BG_TITLE, on_toggle=_toggle_autostart)
+        _as_toggle.pack(side="right")
 
         sep()
         def _check_now():
