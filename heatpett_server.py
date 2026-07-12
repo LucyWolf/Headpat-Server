@@ -57,7 +57,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.1.0"
+SERVER_VERSION  = "v3.1.1"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -885,24 +885,27 @@ class App(tk.Tk):
         # ── Separator ─────────────────────────────────────────────────────────
         tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
 
-        # ── Intensity row ─────────────────────────────────────────────────────
-        int_row = tk.Frame(card, bg=BG)
-        int_row.pack(fill="x", padx=20, pady=(18, 12))
-
-        tk.Label(int_row, text="Intensity", bg=BG, fg=FG,
+        # ── Intensity label + % ───────────────────────────────────────────────
+        int_label_row = tk.Frame(card, bg=BG)
+        int_label_row.pack(fill="x", padx=20, pady=(18, 4))
+        tk.Label(int_label_row, text="Intensity", bg=BG, fg=FG,
                  font=("Segoe UI", 11)).pack(side="left")
-
         self._int_var = tk.DoubleVar(value=50)
         self._int_pct_var = tk.StringVar(value="50%")
-        tk.Label(int_row, textvariable=self._int_pct_var, bg=BG, fg=ACCENT,
-                 font=("Segoe UI", 11, "bold"), width=4, anchor="e").pack(side="right")
-        tk.Scale(int_row, from_=0, to=100, orient="horizontal",
+        tk.Label(int_label_row, textvariable=self._int_pct_var, bg=BG, fg=ACCENT,
+                 font=("Segoe UI", 11, "bold")).pack(side="right")
+
+        # ── Slider (eigene Zeile, full-width) ─────────────────────────────────
+        slider_row = tk.Frame(card, bg=BG)
+        slider_row.pack(fill="x", padx=14, pady=(0, 14))
+        _trough = "#c8b8e8" if _THEME == "light" else "#2a1a4a"
+        tk.Scale(slider_row, from_=0, to=100, orient="horizontal",
                  variable=self._int_var, bg=BG, fg=ACCENT,
-                 troughcolor="#1a1c24", highlightthickness=0,
+                 troughcolor=_trough, highlightthickness=0,
                  activebackground=ACCENT, sliderlength=22, bd=0,
                  showvalue=False,
                  command=self._on_intensity_change
-                 ).pack(side="right", fill="x", expand=True)
+                 ).pack(fill="x", expand=True)
 
         # ── Separator ─────────────────────────────────────────────────────────
         tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
@@ -918,24 +921,32 @@ class App(tk.Tk):
         def _select_mode(m):
             self._vib_mode = m
             self._debounce_save()
+            _a_bg = ACCENT
+            _i_bg = BG_BTN
             for i, b in enumerate(self._mode_btns):
-                b.config(fg=ACCENT if i == m else FG_DIM,
-                         bg=BG_BTN if i == m else BG)
+                b.config(bg=_a_bg if i == m else _i_bg,
+                         fg="white" if i == m else FG_DIM,
+                         activebackground=_a_bg if i == m else BG_BTN_A,
+                         activeforeground="white" if i == m else FG)
 
         _m = self._vib_mode
         btn_prox = tk.Button(mode_row, text="Proximity",
                              command=lambda: _select_mode(0),
-                             bg=BG_BTN if _m == 0 else BG,
-                             fg=ACCENT if _m == 0 else FG_DIM,
-                             activebackground=BG_BTN_A, bd=0, relief="flat",
-                             font=("Segoe UI", 10), padx=12, pady=6,
+                             bg=ACCENT if _m == 0 else BG_BTN,
+                             fg="white" if _m == 0 else FG_DIM,
+                             activebackground=ACCENT if _m == 0 else BG_BTN_A,
+                             activeforeground="white" if _m == 0 else FG,
+                             bd=0, relief="flat",
+                             font=("Segoe UI", 10), padx=14, pady=7,
                              cursor="hand2")
         btn_trig = tk.Button(mode_row, text="Trigger",
                              command=lambda: _select_mode(1),
-                             bg=BG_BTN if _m == 1 else BG,
-                             fg=ACCENT if _m == 1 else FG_DIM,
-                             activebackground=BG_BTN_A, bd=0, relief="flat",
-                             font=("Segoe UI", 10), padx=12, pady=6,
+                             bg=ACCENT if _m == 1 else BG_BTN,
+                             fg="white" if _m == 1 else FG_DIM,
+                             activebackground=ACCENT if _m == 1 else BG_BTN_A,
+                             activeforeground="white" if _m == 1 else FG,
+                             bd=0, relief="flat",
+                             font=("Segoe UI", 10), padx=14, pady=7,
                              cursor="hand2")
         btn_trig.pack(side="right")
         btn_prox.pack(side="right", padx=(0, 6))
@@ -946,13 +957,13 @@ class App(tk.Tk):
 
         # ── Test row ──────────────────────────────────────────────────────────
         test_row = tk.Frame(card, bg=BG)
-        test_row.pack(fill="x", padx=20, pady=(16, 22))
+        test_row.pack(fill="x", padx=20, pady=(14, 20))
 
         tk.Label(test_row, text="Test", bg=BG, fg=FG,
                  font=("Segoe UI", 11)).pack(side="left")
 
         self._mkbtn(test_row, "R", self._pat_right).pack(side="right")
-        self._mkbtn(test_row, "L", self._pat_left).pack(side="right", padx=(0, 10))
+        self._mkbtn(test_row, "L", self._pat_left).pack(side="right", padx=(0, 8))
 
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -972,9 +983,10 @@ class App(tk.Tk):
     def _mkbtn(self, parent, text, cmd):
         return tk.Button(parent, text=text, command=cmd,
                          bg=BG_BTN, fg=FG, activebackground=BG_BTN_A,
-                         activeforeground=FG, bd=0, relief="flat",
-                         font=("Segoe UI", 11, "bold"),
-                         width=6, pady=8, cursor="hand2")
+                         activeforeground=FG, bd=1, relief="solid",
+                         highlightthickness=0,
+                         font=("Segoe UI", 10, "bold"),
+                         width=4, padx=6, pady=6, cursor="hand2")
 
     # ── Drag ──────────────────────────────────────────────────────────────────
     def _drag_start(self, e):
