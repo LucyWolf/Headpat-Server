@@ -57,7 +57,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.1.3"
+SERVER_VERSION  = "v3.1.4"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -189,9 +189,7 @@ class App(tk.Tk):
 
         self._load_icon()
         self._build()
-        _iv = self._cfg.get("intensity", 50)
-        self._int_var.set(_iv)
-        self._int_pct_var.set(f"{int(_iv)}%")
+        self._int_var.set(self._cfg.get("intensity", 50))
         self.update_idletasks()
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
         w,  h  = self.winfo_width(),       self.winfo_height()
@@ -844,39 +842,30 @@ class App(tk.Tk):
         # ── Separator ─────────────────────────────────────────────────────────
         tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
 
-        # ── Intensity label + % ───────────────────────────────────────────────
-        int_label_row = tk.Frame(card, bg=BG)
-        int_label_row.pack(fill="x", padx=20, pady=(18, 4))
-        tk.Label(int_label_row, text="Intensity", bg=BG, fg=FG,
-                 font=("Segoe UI", 11)).pack(side="left")
-        self._int_var = tk.DoubleVar(value=50)
-        self._int_pct_var = tk.StringVar(value="50%")
-        tk.Label(int_label_row, textvariable=self._int_pct_var, bg=BG, fg=ACCENT,
-                 font=("Segoe UI", 11, "bold")).pack(side="right")
+        # ── Intensity row ─────────────────────────────────────────────────────
+        int_row = tk.Frame(card, bg=BG)
+        int_row.pack(fill="x", padx=20, pady=(18, 12))
 
-        # ── Slider (eigene Zeile, full-width) ─────────────────────────────────
-        slider_row = tk.Frame(card, bg=BG)
-        slider_row.pack(fill="x", padx=14, pady=(0, 14))
-        _trough = "#c8b8e8" if _THEME == "light" else "#2a1a4a"
-        tk.Scale(slider_row, from_=0, to=100, orient="horizontal",
+        tk.Label(int_row, text="Intensity", bg=BG, fg=FG,
+                 font=("Segoe UI", 11)).pack(side="left")
+
+        self._int_var = tk.DoubleVar(value=50)
+        tk.Scale(int_row, from_=0, to=100, orient="horizontal",
                  variable=self._int_var, bg=BG, fg=ACCENT,
-                 troughcolor=_trough, highlightthickness=0,
+                 troughcolor="#1a1c24", highlightthickness=0,
                  activebackground=ACCENT, sliderlength=22, bd=0,
-                 showvalue=False,
+                 showvalue=False, length=230,
                  command=self._on_intensity_change
-                 ).pack(fill="x", expand=True)
+                 ).pack(side="right")
 
         # ── Separator ─────────────────────────────────────────────────────────
         tk.Frame(card, bg=BORDER, height=1).pack(fill="x")
 
-        # ── Mode row — Segmented control ──────────────────────────────────────
+        # ── Mode row ──────────────────────────────────────────────────────────
         mode_row = tk.Frame(card, bg=BG)
         mode_row.pack(fill="x", padx=20, pady=(14, 14))
         tk.Label(mode_row, text="Modus", bg=BG, fg=FG,
                  font=("Segoe UI", 11)).pack(side="left")
-
-        seg_outer = tk.Frame(mode_row, bg=BORDER, bd=0)
-        seg_outer.pack(side="right")
 
         self._mode_btns = []
 
@@ -884,33 +873,26 @@ class App(tk.Tk):
             self._vib_mode = m
             self._debounce_save()
             for i, b in enumerate(self._mode_btns):
-                b.config(bg=ACCENT if i == m else BG_BTN,
-                         fg="white" if i == m else FG_DIM,
-                         activebackground=ACCENT if i == m else BG_BTN_A,
-                         activeforeground="white" if i == m else FG)
+                b.config(fg=ACCENT if i == m else FG_DIM,
+                         bg=BG_BTN if i == m else BG)
 
         _m = self._vib_mode
-        btn_prox = tk.Button(seg_outer, text="Proximity",
+        btn_prox = tk.Button(mode_row, text="Proximity",
                              command=lambda: _select_mode(0),
-                             bg=ACCENT if _m == 0 else BG_BTN,
-                             fg="white" if _m == 0 else FG_DIM,
-                             activebackground=ACCENT if _m == 0 else BG_BTN_A,
-                             activeforeground="white" if _m == 0 else FG,
-                             bd=0, relief="flat",
-                             font=("Segoe UI", 10), padx=14, pady=7,
+                             bg=BG_BTN if _m == 0 else BG,
+                             fg=ACCENT if _m == 0 else FG_DIM,
+                             activebackground=BG_BTN_A, bd=0, relief="flat",
+                             font=("Segoe UI", 10), padx=12, pady=6,
                              cursor="hand2")
-        btn_trig = tk.Button(seg_outer, text="Trigger",
+        btn_trig = tk.Button(mode_row, text="Trigger",
                              command=lambda: _select_mode(1),
-                             bg=ACCENT if _m == 1 else BG_BTN,
-                             fg="white" if _m == 1 else FG_DIM,
-                             activebackground=ACCENT if _m == 1 else BG_BTN_A,
-                             activeforeground="white" if _m == 1 else FG,
-                             bd=0, relief="flat",
-                             font=("Segoe UI", 10), padx=14, pady=7,
+                             bg=BG_BTN if _m == 1 else BG,
+                             fg=ACCENT if _m == 1 else FG_DIM,
+                             activebackground=BG_BTN_A, bd=0, relief="flat",
+                             font=("Segoe UI", 10), padx=12, pady=6,
                              cursor="hand2")
-        btn_prox.pack(side="left")
-        tk.Frame(seg_outer, bg=BORDER, width=1).pack(side="left", fill="y")
-        btn_trig.pack(side="left")
+        btn_trig.pack(side="right")
+        btn_prox.pack(side="right", padx=(0, 6))
         self._mode_btns = [btn_prox, btn_trig]
 
         # ── Separator ─────────────────────────────────────────────────────────
@@ -918,13 +900,13 @@ class App(tk.Tk):
 
         # ── Test row ──────────────────────────────────────────────────────────
         test_row = tk.Frame(card, bg=BG)
-        test_row.pack(fill="x", padx=20, pady=(14, 20))
+        test_row.pack(fill="x", padx=20, pady=(16, 22))
 
         tk.Label(test_row, text="Test", bg=BG, fg=FG,
                  font=("Segoe UI", 11)).pack(side="left")
 
         self._mkbtn(test_row, "R", self._pat_right).pack(side="right")
-        self._mkbtn(test_row, "L", self._pat_left).pack(side="right", padx=(0, 8))
+        self._mkbtn(test_row, "L", self._pat_left).pack(side="right", padx=(0, 10))
 
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -938,15 +920,14 @@ class App(tk.Tk):
 
     def _on_intensity_change(self, v):
         self._intensity = float(v) / 100
-        self._int_pct_var.set(f"{int(float(v))}%")
         self._debounce_save()
 
     def _mkbtn(self, parent, text, cmd):
         return tk.Button(parent, text=text, command=cmd,
                          bg=BG_BTN, fg=FG, activebackground=BG_BTN_A,
                          activeforeground=FG, bd=0, relief="flat",
-                         font=("Segoe UI", 10, "bold"),
-                         width=5, padx=8, pady=8, cursor="hand2")
+                         font=("Segoe UI", 11, "bold"),
+                         width=6, pady=8, cursor="hand2")
 
     # ── Drag ──────────────────────────────────────────────────────────────────
     def _drag_start(self, e):
@@ -1135,15 +1116,13 @@ class App(tk.Tk):
                   padx=10, pady=6, cursor="hand2").pack(side="left", padx=(6, 0))
 
         is_connected = self._ser is not None
-        tk.Button(win,
+        tk.Button(conn_row,
                   text="Disconnect" if is_connected else "Connect",
                   command=self._toggle_serial,
-                  bg=RED if is_connected else ACCENT,
-                  fg="white",
-                  activebackground="#b91c1c" if is_connected else "#1d4ed8",
-                  activeforeground="white",
-                  bd=0, relief="flat", font=("Segoe UI", 10, "bold"),
-                  pady=9, cursor="hand2").pack(fill="x", padx=16, pady=(6, 14))
+                  bg=BG_BTN, fg=RED if is_connected else ACCENT,
+                  activebackground=BG_BTN_A, activeforeground=FG,
+                  bd=0, relief="flat", font=("Segoe UI", 10),
+                  padx=12, pady=6, cursor="hand2").pack(side="left", padx=(10, 0))
 
         # ── Dongle-Board ──
         sep()
