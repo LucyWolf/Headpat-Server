@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.5.11"
+SERVER_VERSION  = "v3.5.12"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1745,7 +1745,7 @@ class App(tk.Tk):
         # ── Position & Anzeige ────────────────────────────────────────────
         win.update_idletasks()
         rw = 460
-        rh = win.winfo_reqheight() + 260   # Platz für Log-Bereich
+        rh = win.winfo_reqheight() + 160   # Platz für Log-Bereich
         self.update_idletasks()
         x = self.winfo_x()
         y = self.winfo_y() + self.winfo_height() + 8
