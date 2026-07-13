@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.4.4"
+SERVER_VERSION  = "v3.4.5"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1412,7 +1412,7 @@ class App(tk.Tk):
 
         # ── Intensity label + % ───────────────────────────────────────────────
         int_label_row = tk.Frame(card, bg=BG)
-        int_label_row.pack(fill="x", padx=20, pady=(12, 2))
+        int_label_row.pack(fill="x", padx=20, pady=(10, 2))
         tk.Label(int_label_row, text="Intensity", bg=BG, fg=FG,
                  font=("Inter", 11, "bold")).pack(side="left")
         self._int_var     = tk.DoubleVar(value=50)
@@ -1423,12 +1423,12 @@ class App(tk.Tk):
         # ── Slider (eigene Zeile, full-width) ─────────────────────────────────
         FancySlider(card, variable=self._int_var, from_=0, to=100,
                     command=self._on_intensity_change,
-                    track_h=4, thumb_r=7, p_bg=BG
-                    ).pack(fill="x", padx=16, pady=(0, 10))
+                    track_h=4, thumb_r=6, p_bg=BG
+                    ).pack(fill="x", padx=16, pady=(0, 8))
 
         # ── Mode row ──────────────────────────────────────────────────────────
         mode_row = tk.Frame(card, bg=BG)
-        mode_row.pack(fill="x", padx=20, pady=(10, 10))
+        mode_row.pack(fill="x", padx=20, pady=(8, 8))
         tk.Label(mode_row, text="Modus", bg=BG, fg=FG,
                  font=("Inter", 11, "bold")).pack(side="left")
 
@@ -1439,12 +1439,12 @@ class App(tk.Tk):
         seg = SegmentedControl(mode_row, ["Proximity", "Trigger"],
                                command=_select_mode,
                                active=self._vib_mode,
-                               seg_w=90, h=32, r_cont=9, r_seg=7, pad=3, p_bg=BG)
+                               seg_w=84, h=26, r_cont=7, r_seg=6, pad=3, p_bg=BG)
         seg.pack(side="right")
 
         # ── Test row ──────────────────────────────────────────────────────────
         test_row = tk.Frame(card, bg=BG)
-        test_row.pack(fill="x", padx=20, pady=(10, 16))
+        test_row.pack(fill="x", padx=20, pady=(8, 14))
 
         tk.Label(test_row, text="Test", bg=BG, fg=FG,
                  font=("Inter", 11, "bold")).pack(side="left")
