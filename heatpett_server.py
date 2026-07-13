@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.3.0"
+SERVER_VERSION  = "v3.3.1"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1280,7 +1280,7 @@ class App(tk.Tk):
         return RoundedBtn(parent, text, cmd,
                           w=50, h=36, r=8, p_bg=BG,
                           fill=BG_BTN, fg=FG,
-                          hover=ACCENT, hover_fg="white",
+                          hover=BG_BTN, hover_fg=FG,
                           press=ACCENT, border_col=BORDER)
 
     # ── Drag ──────────────────────────────────────────────────────────────────
