@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.4.7"
+SERVER_VERSION  = "v3.4.8"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -836,40 +836,92 @@ class App(tk.Tk):
 
     def _open_update_dialog(self):
         win = tk.Toplevel(self)
-        win.title("Updates")
-        win.configure(bg=BG)
+        win.overrideredirect(True)
+        win.configure(bg=BG_TITLE)
         win.resizable(False, False)
-        tk.Frame(win, bg=ACCENT, height=2).pack(fill="x")
-        tk.Label(win, text=_t("upd_available"), bg=BG, fg=FG,
-                 font=("Segoe UI", 12, "bold"), pady=12).pack(padx=20)
-        tk.Label(win, text=_t("upd_usb_hint"),
-                 bg=BG, fg=FG_DIM, font=("Segoe UI", 9), justify="center").pack(padx=20, pady=(0, 8))
+
+        self.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() - 340) // 2
+        y = self.winfo_y() + (self.winfo_height() - 220) // 2
+        win.geometry(f"340+{x}+{y}")
+
+        _drag = [0, 0]
+        def _drag_start(e):
+            _drag[0] = e.x_root - win.winfo_x()
+            _drag[1] = e.y_root - win.winfo_y()
+        def _drag_move(e):
+            win.geometry(f"+{e.x_root - _drag[0]}+{e.y_root - _drag[1]}")
+
+        # ── Titlebar ──────────────────────────────────────────────────────
+        tb = tk.Frame(win, bg=BG_TITLE, height=44)
+        tb.pack(fill="x")
+        tb.pack_propagate(False)
+        for w in (tb,):
+            w.bind("<ButtonPress-1>", _drag_start)
+            w.bind("<B1-Motion>",     _drag_move)
+
+        dot = tk.Canvas(tb, width=9, height=9, bg=BG_TITLE, highlightthickness=0)
+        dot.create_oval(0, 0, 8, 8, fill=ACCENT, outline="")
+        dot.pack(side="left", padx=(14, 7), pady=18)
+        dot.bind("<ButtonPress-1>", _drag_start)
+        dot.bind("<B1-Motion>",     _drag_move)
+
+        title_lbl = tk.Label(tb, text="Updates", bg=BG_TITLE, fg=FG,
+                             font=("Inter", 13, "bold"))
+        title_lbl.pack(side="left")
+        title_lbl.bind("<ButtonPress-1>", _drag_start)
+        title_lbl.bind("<B1-Motion>",     _drag_move)
+
+        RoundedBtn(tb, "✕", win.destroy,
+                   w=28, h=28, r=7, font_size=13,
+                   fill=BG_TITLE, fg=FG_DIM,
+                   hover="#452525", hover_fg=RED,
+                   press="#5a2525", p_bg=BG_TITLE
+                   ).pack(side="right", padx=(0, 6), pady=8)
+
+        # ── Body ──────────────────────────────────────────────────────────
+        body = tk.Frame(win, bg=BG)
+        body.pack(fill="both", expand=True)
+
+        head = tk.Frame(body, bg=BG)
+        head.pack(fill="x", padx=20, pady=(16, 10))
+        tk.Label(head, text=_t("upd_available"), bg=BG, fg=FG,
+                 font=("Inter", 13, "bold"), anchor="w").pack(anchor="w")
+        tk.Label(head, text=_t("upd_usb_hint"), bg=BG, fg=FG_DIM,
+                 font=("Inter", 10), justify="left", anchor="w").pack(anchor="w", pady=(3, 0))
 
         labels = {"headpat": "Headpat Firmware", "dongle": "Dongle Firmware", "server": "Server"}
         if self._updates:
+            first = True
             for key, entry in self._updates.items():
-                row = tk.Frame(win, bg=BG)
-                row.pack(fill="x", padx=20, pady=4)
-                if key == "server":
-                    tk.Button(row, text=_t("btn_update"),
-                              command=lambda k=key, w=win: (w.destroy(), self._server_update(k)),
-                              bg=BG_BTN, fg=ACCENT, activebackground=BG_BTN_A, bd=0,
-                              relief="flat", font=("Segoe UI", 9), padx=8, pady=4,
-                              cursor="hand2").pack(side="right", padx=(4, 6))
-                else:
-                    tk.Button(row, text=_t("btn_flash"),
-                              command=lambda k=key, w=win: self._initiate_flash(k, w),
-                              bg=BG_BTN, fg=ACCENT, activebackground=BG_BTN_A, bd=0,
-                              relief="flat", font=("Segoe UI", 9), padx=8, pady=4,
-                              cursor="hand2").pack(side="right", padx=(4, 6))
-                tk.Label(row, text=entry["tag"], bg=BG, fg=ACCENT,
-                         font=("Segoe UI", 10, "bold")).pack(side="left", padx=(0, 8))
-                tk.Label(row, text=labels.get(key, key), bg=BG, fg=FG,
-                         font=("Segoe UI", 10)).pack(side="left")
-        else:
-            tk.Label(win, text=_t("upd_all_ok"), bg=BG, fg=FG_DIM,
-                     font=("Segoe UI", 10), pady=12).pack()
+                tk.Frame(body, bg=BORDER, height=1).pack(fill="x", padx=20)
+                row = tk.Frame(body, bg=BG)
+                row.pack(fill="x", padx=20, pady=10)
 
+                info = tk.Frame(row, bg=BG)
+                info.pack(side="left")
+                tk.Label(info, text=entry["tag"], bg=BG, fg=ACCENT,
+                         font=("Inter", 11, "bold")).pack(side="left", padx=(0, 8))
+                tk.Label(info, text=labels.get(key, key), bg=BG, fg=FG,
+                         font=("Inter", 11, "bold")).pack(side="left")
+
+                if key == "server":
+                    cmd = lambda k=key, w=win: (w.destroy(), self._server_update(k))
+                    lbl = _t("btn_update")
+                else:
+                    cmd = lambda k=key, w=win: self._initiate_flash(k, w)
+                    lbl = _t("btn_flash")
+                RoundedBtn(row, lbl, cmd,
+                           w=92, h=30, r=8, p_bg=BG,
+                           fill=ACCENT, fg="#ffffff",
+                           hover="#5591ff", hover_fg="#ffffff",
+                           font_spec=("Inter", 10, "bold")
+                           ).pack(side="right")
+        else:
+            tk.Label(body, text=_t("upd_all_ok"), bg=BG, fg=FG_DIM,
+                     font=("Inter", 10), pady=14).pack()
+
+        # ── Bottom ────────────────────────────────────────────────────────
         def _refresh():
             win.destroy()
             self._log("Suche nach Updates…", "info")
@@ -878,16 +930,22 @@ class App(tk.Tk):
                 self.after(0, self._open_update_dialog)
             threading.Thread(target=_run, daemon=True).start()
 
-        bottom = tk.Frame(win, bg=BG)
-        bottom.pack(fill="x", padx=20, pady=(8, 16))
-        tk.Button(bottom, text=_t("btn_refresh"), command=_refresh,
-                  bg=BG_BTN, fg=FG, activebackground=BG_BTN_A, bd=0,
-                  relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
-                  cursor="hand2").pack(side="left")
-        tk.Button(bottom, text=_t("btn_close"), command=win.destroy,
-                  bg=BG_TITLE, fg=FG_DIM, activebackground=BG_BTN, bd=0,
-                  relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
-                  cursor="hand2").pack(side="right")
+        tk.Frame(body, bg=BORDER, height=1).pack(fill="x")
+        bottom = tk.Frame(body, bg=BG)
+        bottom.pack(fill="x", padx=20, pady=(12, 16))
+        RoundedBtn(bottom, _t("btn_refresh"), _refresh,
+                   w=130, h=34, r=9, p_bg=BG,
+                   fill=ACCENT, fg="#ffffff",
+                   hover="#5591ff", hover_fg="#ffffff",
+                   font_spec=("Inter", 11, "bold")
+                   ).pack(side="left")
+        RoundedBtn(bottom, _t("btn_close"), win.destroy,
+                   w=100, h=34, r=9, p_bg=BG,
+                   fill=BG_BTN, fg=FG_DIM,
+                   hover=BG_BTN_A, hover_fg=FG,
+                   border_col=BORDER,
+                   font_spec=("Inter", 11)
+                   ).pack(side="right")
 
     def _initiate_flash(self, key, dialog=None):
         if dialog:
