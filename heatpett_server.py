@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.3.3"
+SERVER_VERSION  = "v3.3.4"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -141,7 +141,8 @@ class RoundedBtn(tk.Canvas):
 
     def __init__(self, parent, text, command, w=80, h=30, r=10,
                  fill=BG_BTN, fg=FG, hover=BG_BTN_A, press=None,
-                 hover_fg=None, font_size=10, border_col=None, p_bg=BG, **kw):
+                 hover_fg=None, font_size=10, border_col=None, p_bg=BG,
+                 img_normal=None, img_hover=None, **kw):
         super().__init__(parent, width=w, height=h,
                          bg=p_bg, highlightthickness=0, cursor="hand2", **kw)
         self._text       = text
@@ -154,6 +155,9 @@ class RoundedBtn(tk.Canvas):
         self._border_col = border_col
         self._p_bg       = p_bg
         self._photo      = None
+        self._img_normal = img_normal
+        self._img_hover  = img_hover
+        self._icon_ref   = None
         self._draw(fill, fg)
         self.bind("<Enter>",          lambda _: self._draw(self._hover, self._hover_fg))
         self.bind("<Leave>",          lambda _: self._draw(self._fill,  self._fg))
@@ -202,9 +206,15 @@ class RoundedBtn(tk.Canvas):
                 self._poly_fallback(color, bc)
         else:
             self._poly_fallback(color, bc)
-        self.create_text(w//2, h//2, text=self._text,
-                         fill=text_fg if text_fg is not None else self._fg,
-                         font=("Segoe UI", self._font_size))
+        if self._img_normal is not None:
+            is_active = (color != self._fill)
+            img = self._img_hover if (is_active and self._img_hover) else self._img_normal
+            self._icon_ref = img
+            self.create_image(w // 2, h // 2, image=img, anchor="center")
+        else:
+            self.create_text(w//2, h//2, text=self._text,
+                             fill=text_fg if text_fg is not None else self._fg,
+                             font=("Segoe UI", self._font_size))
 
     def _on_press(self, _):
         self._draw(self._press, self._hover_fg)
@@ -1203,6 +1213,45 @@ class App(tk.Tk):
         img = img.resize((size, size), Image.LANCZOS)
         return ImageTk.PhotoImage(img)
 
+    def _render_terminal_icon(self, size=15, active=True):
+        """Draw a '>_' terminal icon inside a rounded square. Returns PhotoImage or None."""
+        if not PIL_OK:
+            return None
+        import math
+        sc = 5
+        s  = size * sc
+        img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+        d   = _PilDraw.Draw(img)
+
+        h   = (FG if active else FG_DIM).lstrip('#')
+        col = tuple(int(h[i:i+2], 16) for i in (0, 2, 4)) + (255 if active else 70,)
+
+        lw     = max(int(s * 0.09), 2)
+        margin = int(s * 0.04)
+        radius = int(s * 0.23)
+
+        # Rounded square outline
+        d.rounded_rectangle([margin, margin, s - margin - 1, s - margin - 1],
+                            radius=radius, outline=col, width=lw)
+
+        # ">" chevron — left-center
+        cx   = s * 0.30
+        cy   = s * 0.50
+        arm  = s * 0.15
+        tip  = cx + arm * 0.9
+        lw2  = max(int(lw * 1.05), 2)
+        d.line([(cx, cy - arm), (tip, cy)], fill=col, width=lw2)
+        d.line([(cx, cy + arm), (tip, cy)], fill=col, width=lw2)
+
+        # "—" cursor line — to the right of ">"
+        x1 = tip + s * 0.06
+        x2 = s * 0.76
+        y  = cy + arm * 0.35
+        d.line([(x1, y), (x2, y)], fill=col, width=lw2)
+
+        img = img.resize((size, size), Image.LANCZOS)
+        return ImageTk.PhotoImage(img)
+
     def _set_badge_active(self, active: bool):
         if self._badge_cvs is None:
             return
@@ -1266,11 +1315,14 @@ class App(tk.Tk):
         self._badge_cvs.bind("<Button-1>", lambda _: self._open_update_dialog())
         self._badge_lbl = self._badge_cvs   # compat alias
 
+        _term_dim = self._render_terminal_icon(15, active=False)
+        _term_on  = self._render_terminal_icon(15, active=True)
         self._log_btn = RoundedBtn(tb, "≡", self._toggle_console,
                                    w=28, h=28, r=7, font_size=15,
                                    fill=BG_TITLE, fg=FG_DIM,
                                    hover="#2c3a58", hover_fg=FG,
-                                   press="#2c3a58", p_bg=BG_TITLE)
+                                   press="#2c3a58", p_bg=BG_TITLE,
+                                   img_normal=_term_dim, img_hover=_term_on)
         self._log_btn.pack(side="right", padx=2, pady=8)
 
         # ── Thin accent line under title ──────────────────────────────────────
