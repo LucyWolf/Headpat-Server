@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.5.2"
+SERVER_VERSION  = "v3.5.8"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -582,7 +582,8 @@ class App(tk.Tk):
         self._hp_ver_var     = tk.StringVar(value="?")
         self._dongle_ver_var = tk.StringVar(value="?")
         self._save_after_id  = None
-        self._updates        = {}   # "headpat"|"dongle"|"server" -> {tag, url, asset, path}
+        self._updates               = {}   # "headpat"|"dongle"|"server" -> {tag, url, asset, path}
+        self._last_check_had_errors = False
         self._known_drives   = set()
         self._badge_lbl      = None   # kept for compat
         self._badge_cvs      = None
@@ -636,17 +637,20 @@ class App(tk.Tk):
              "dongle-pro-micro-nrf52840.uf2" if self._board_var.get() == "nicenano" else "dongle-holyiot-nrf52840.uf2"),
             ("server",  SERVER_REPO,  asset_win if os.name == "nt" else asset_lin),
         ]
-        found_any = False
+        found_any  = False
+        had_errors = False
         for key, repo, asset_name in checks:
             try:
                 data   = self._gh_latest(repo)
                 tag    = data.get("tag_name", "")
                 if not tag:
                     self._log(f"Update {key}: keine Version in API-Antwort", "warn")
+                    had_errors = True
                     continue
                 assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
                 if asset_name not in assets:
                     self._log(f"Update {key}: Asset '{asset_name}' nicht in Release {tag}", "warn")
+                    had_errors = True
                     continue
                 existing = self._updates.get(key, {})
                 if existing.get("tag") == tag:
@@ -669,7 +673,9 @@ class App(tk.Tk):
                 found_any = True
             except Exception as e:
                 self._log(f"Update {key}: Fehler – {e}", "warn")
-        if not found_any:
+                had_errors = True
+        self._last_check_had_errors = had_errors
+        if not found_any and not had_errors:
             self._log("Alle Komponenten aktuell.", "info")
 
     def _gh_latest(self, repo):
@@ -928,8 +934,12 @@ class App(tk.Tk):
                            font_spec=("Inter", 10, "bold")
                            ).pack(side="right")
         else:
-            tk.Label(body, text=_t("upd_all_ok"), bg=BG, fg=FG_DIM,
-                     font=("Inter", 10), pady=14).pack()
+            if self._last_check_had_errors:
+                tk.Label(body, text="GitHub nicht erreichbar.\nDetails im Terminal.", bg=BG,
+                         fg=YELLOW, font=("Inter", 10), justify="center", pady=14).pack()
+            else:
+                tk.Label(body, text=_t("upd_all_ok"), bg=BG, fg=FG_DIM,
+                         font=("Inter", 10), pady=14).pack()
 
         # ── Bottom ────────────────────────────────────────────────────────
         def _refresh():
@@ -2134,6 +2144,13 @@ class App(tk.Tk):
         self._set_dot(self._hp_dot, RED)
         self._bat_text = "🔋 ?%"; self._bat_fg = FG_DIM
         self._bat_lbl.config(text=self._bat_text, fg=self._bat_fg)
+        # Versionen zurücksetzen, damit Update-Check nach Reconnect wieder korrekt arbeitet
+        self._hp_version     = "?"
+        self._dongle_version = "?"
+        self._hp_ver_var.set("?")
+        self._dongle_ver_var.set("?")
+        self._updates.pop("headpat", None)
+        self._updates.pop("dongle",  None)
         self._log("Serial getrennt", "warn")
         self._save_config()
 
