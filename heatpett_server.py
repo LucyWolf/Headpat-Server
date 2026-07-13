@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.3.9"
+SERVER_VERSION  = "v3.4.0"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1413,7 +1413,7 @@ class App(tk.Tk):
         int_label_row = tk.Frame(card, bg=BG)
         int_label_row.pack(fill="x", padx=20, pady=(18, 2))
         tk.Label(int_label_row, text="Intensity", bg=BG, fg=FG,
-                 font=("Segoe UI", 11)).pack(side="left")
+                 font=("Inter", 11, "bold")).pack(side="left")
         self._int_var     = tk.DoubleVar(value=50)
         self._int_pct_var = tk.StringVar(value="50%")
         tk.Label(int_label_row, textvariable=self._int_pct_var, bg=BG, fg=ACCENT,
@@ -1429,7 +1429,7 @@ class App(tk.Tk):
         mode_row = tk.Frame(card, bg=BG)
         mode_row.pack(fill="x", padx=20, pady=(14, 14))
         tk.Label(mode_row, text="Modus", bg=BG, fg=FG,
-                 font=("Segoe UI", 11)).pack(side="left")
+                 font=("Inter", 11, "bold")).pack(side="left")
 
         def _select_mode(m):
             self._vib_mode = m
@@ -1446,7 +1446,7 @@ class App(tk.Tk):
         test_row.pack(fill="x", padx=20, pady=(16, 22))
 
         tk.Label(test_row, text="Test", bg=BG, fg=FG,
-                 font=("Segoe UI", 11)).pack(side="left")
+                 font=("Inter", 11, "bold")).pack(side="left")
 
         self._mkbtn(test_row, "R", self._pat_right).pack(side="right")
         self._mkbtn(test_row, "L", self._pat_left).pack(side="right", padx=(0, 10))
