@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.5.8"
+SERVER_VERSION  = "v3.5.9"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1608,51 +1608,85 @@ class App(tk.Tk):
     def _open_console(self):
         win = tk.Toplevel(self)
         self._console_win = win
-        win.title("Headpat Log")
+        win.overrideredirect(True)
         win.configure(bg=BG_TITLE)
-        win.geometry("620x320")
-        win.resizable(True, True)
+        win.resizable(False, False)
+        win.withdraw()
 
-        # Title bar of console
-        top = tk.Frame(win, bg=BG_TITLE)
-        top.pack(fill="x")
+        _drag = [0, 0]
+        def _drag_start(e):
+            _drag[0] = e.x_root - win.winfo_x()
+            _drag[1] = e.y_root - win.winfo_y()
+        def _drag_move(e):
+            win.geometry(f"+{e.x_root - _drag[0]}+{e.y_root - _drag[1]}")
+        def _bind_drag(w):
+            w.bind("<ButtonPress-1>", _drag_start)
+            w.bind("<B1-Motion>",     _drag_move)
 
-        tk.Label(top, text="Headpat Console", bg=BG_TITLE, fg=FG_DIM,
-                 font=("Segoe UI", 9)).pack(side="left", padx=12, pady=8)
+        # ── Titlebar ──────────────────────────────────────────────────────
+        tb = tk.Frame(win, bg=BG_TITLE, height=44)
+        tb.pack(fill="x")
+        tb.pack_propagate(False)
+        _bind_drag(tb)
 
-        # Verbose OSC toggle
-        self._verb_btn = tk.Button(
-            top, text="OSC: nur Headpat", command=self._toggle_verbose,
-            bg=BG_BTN, fg=FG_DIM, activebackground=BG_BTN_A,
-            activeforeground=FG, bd=0, relief="flat",
-            font=("Segoe UI", 9), padx=10, pady=4, cursor="hand2")
-        self._verb_btn.pack(side="left", padx=(0, 6), pady=6)
+        dot = tk.Canvas(tb, width=9, height=9, bg=BG_TITLE, highlightthickness=0)
+        dot.create_oval(0, 0, 8, 8, fill=GREEN, outline="")
+        dot.pack(side="left", padx=(14, 7), pady=18)
+        _bind_drag(dot)
 
-        clr = tk.Button(top, text="Clear", command=self._clear_console,
-                        bg=BG_BTN, fg=FG_DIM, activebackground=BG_BTN_A,
-                        activeforeground=FG, bd=0, relief="flat",
-                        font=("Segoe UI", 9), padx=10, pady=4, cursor="hand2")
-        clr.pack(side="left", pady=6)
+        title_lbl = tk.Label(tb, text="Terminal", bg=BG_TITLE, fg=FG,
+                             font=("Inter", 11, "bold"))
+        title_lbl.pack(side="left")
+        _bind_drag(title_lbl)
 
-        tk.Frame(win, bg=ACCENT, height=2).pack(fill="x")
+        RoundedBtn(tb, "✕", self._toggle_console,
+                   w=28, h=28, r=7, font_size=13,
+                   fill=BG_TITLE, fg=FG_DIM,
+                   hover="#452525", hover_fg=RED,
+                   press="#5a2525", p_bg=BG_TITLE
+                   ).pack(side="right", padx=(0, 6), pady=8)
 
-        # Text area
-        txt_frame = tk.Frame(win, bg=BG)
-        txt_frame.pack(fill="both", expand=True, padx=0, pady=0)
+        # OSC-Verbose + Clear log in der Titlebar
+        osc_text = "OSC: alle" if self._osc_verbose else "OSC: nur Headpat"
+        osc_fg   = YELLOW      if self._osc_verbose else FG_DIM
+        self._verb_btn = RoundedBtn(tb, osc_text, self._toggle_verbose,
+                                    w=110, h=26, r=6,
+                                    fill=BG_BTN, fg=osc_fg,
+                                    hover=BG_BTN_A, hover_fg=FG,
+                                    border_col=BORDER,
+                                    font_spec=("Inter", 9),
+                                    p_bg=BG_TITLE)
+        self._verb_btn.pack(side="right", padx=(0, 4), pady=9)
+
+        RoundedBtn(tb, "Log löschen", self._clear_console,
+                   w=84, h=26, r=6,
+                   fill=BG_BTN, fg=FG_DIM,
+                   hover=BG_BTN_A, hover_fg=FG,
+                   border_col=BORDER,
+                   font_spec=("Inter", 9),
+                   p_bg=BG_TITLE
+                   ).pack(side="right", padx=(0, 4), pady=9)
+
+        # ── Log-Bereich ───────────────────────────────────────────────────
+        body = tk.Frame(win, bg=BG)
+        body.pack(fill="both", expand=True)
+
+        txt_frame = tk.Frame(body, bg="#07090e")
+        txt_frame.pack(fill="both", expand=True)
 
         self._console_text = tk.Text(
             txt_frame, bg="#07090e", fg=FG_DIM,
-            font=("Courier New", 9), state="disabled",
+            font=("JetBrains Mono", 9), state="disabled",
             wrap="none", selectbackground=BG_BTN_A,
             relief="flat", bd=0, insertbackground=FG
         )
-        self._console_text.tag_config("PASS",  foreground=GREEN)
-        self._console_text.tag_config("skip",  foreground=FG_DIM)
-        self._console_text.tag_config("osc",   foreground=OSC_COL)
-        self._console_text.tag_config("info",  foreground=ACCENT)
-        self._console_text.tag_config("warn",  foreground=YELLOW)
-        self._console_text.tag_config("err",   foreground=RED)
-        self._console_text.tag_config("serial",foreground="#5a8a6a")
+        self._console_text.tag_config("PASS",   foreground=GREEN)
+        self._console_text.tag_config("skip",   foreground=FG_DIM)
+        self._console_text.tag_config("osc",    foreground=OSC_COL)
+        self._console_text.tag_config("info",   foreground=ACCENT)
+        self._console_text.tag_config("warn",   foreground=YELLOW)
+        self._console_text.tag_config("err",    foreground=RED)
+        self._console_text.tag_config("serial", foreground="#5a8a6a")
 
         vsb = tk.Scrollbar(txt_frame, orient="vertical",
                            command=self._console_text.yview,
@@ -1660,30 +1694,78 @@ class App(tk.Tk):
         hsb = tk.Scrollbar(txt_frame, orient="horizontal",
                            command=self._console_text.xview,
                            bg=BG, activebackground=BG_BTN, troughcolor=BG)
-        self._console_text.configure(
-            yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        self._console_text.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
         vsb.pack(side="right", fill="y")
         hsb.pack(side="bottom", fill="x")
         self._console_text.pack(side="left", fill="both", expand=True)
 
-        # Populate with existing history
         self._console_text.config(state="normal")
         for ts, tag, text in self._log_buf:
             self._console_text.insert("end", f"{ts}  {text}\n", tag)
         self._console_text.see("end")
         self._console_text.config(state="disabled")
 
+        # ── Dongle-Befehle ────────────────────────────────────────────────
+        tk.Frame(body, bg=BORDER, height=1).pack(fill="x")
+        cmd_area = tk.Frame(body, bg=BG)
+        cmd_area.pack(fill="x", padx=16, pady=10)
+
+        tk.Label(cmd_area, text="DONGLE", bg=BG, fg=FG_DIM,
+                 font=("Inter", 8, "bold")).pack(anchor="w", pady=(0, 6))
+
+        CW = 110  # command button width
+
+        for pairs in [
+            [("Pairing", "pair",   ACCENT), ("List",   "list",   FG),
+             ("Uptime",  "uptime", FG),     ("Remove", "remove", YELLOW),
+             ("Reboot",  "reboot", FG_DIM)],
+        ]:
+            row = tk.Frame(cmd_area, bg=BG)
+            row.pack(fill="x", pady=(0, 6))
+            for text, cmd, color in pairs:
+                RoundedBtn(row, text, lambda c=cmd: self._send_cmd(c),
+                           w=CW, h=30, r=7, p_bg=BG,
+                           fill=BG_BTN, fg=color, hover=BG_BTN_A, hover_fg=FG,
+                           border_col=BORDER, font_spec=("Inter", 10, "bold")
+                           ).pack(side="left", padx=(0, 6))
+
+        dfu_row = tk.Frame(cmd_area, bg=BG)
+        dfu_row.pack(fill="x")
+        RoundedBtn(dfu_row, "Clear BLE", lambda: self._send_cmd("clear"),
+                   w=CW, h=30, r=7, p_bg=BG,
+                   fill=BG_BTN, fg=RED, hover=BG_BTN_A, hover_fg=RED,
+                   border_col=BORDER, font_spec=("Inter", 10, "bold")
+                   ).pack(side="left", padx=(0, 6))
+        RoundedBtn(dfu_row, "DFU", lambda: self._send_cmd("dfu"),
+                   w=CW, h=30, r=7, p_bg=BG,
+                   fill=BG_BTN, fg=FG_DIM, hover=BG_BTN_A, hover_fg=FG,
+                   border_col=BORDER, font_spec=("Inter", 10, "bold")
+                   ).pack(side="left")
+
+        # ── Position & Anzeige ────────────────────────────────────────────
+        win.update_idletasks()
+        rw = max(win.winfo_reqwidth(), 640)
+        rh = win.winfo_reqheight() + 260   # Platz für Log-Bereich
+        self.update_idletasks()
+        x = self.winfo_x()
+        y = self.winfo_y() + self.winfo_height() + 8
+        win.geometry(f"{rw}x{rh}+{x}+{y}")
+        win.deiconify()
+        self.after(0, lambda: self._round_toplevel(win))
         self._log_btn.set_style(BG_TITLE, GREEN, hover="#2c3a58")
-        win.protocol("WM_DELETE_WINDOW", self._toggle_console)
 
     def _toggle_verbose(self):
         self._osc_verbose = not self._osc_verbose
         if self._osc_verbose:
-            self._verb_btn.config(text="OSC: alle", fg=YELLOW)
             self._log("OSC verbose ON — zeige alle Parameter", "warn")
         else:
-            self._verb_btn.config(text="OSC: nur Headpat", fg=FG_DIM)
             self._log("OSC verbose OFF", "info")
+        if self._verb_btn and self._verb_btn.winfo_exists():
+            new_text = "OSC: alle"      if self._osc_verbose else "OSC: nur Headpat"
+            new_fg   = YELLOW           if self._osc_verbose else FG_DIM
+            self._verb_btn._text = new_text
+            self._verb_btn._fg   = new_fg
+            self._verb_btn._draw(self._verb_btn._fill, new_fg)
         self._save_config()
 
     def _clear_console(self):
@@ -1825,32 +1907,6 @@ class App(tk.Tk):
                            activebackground=BG, activeforeground=ACCENT,
                            font=("Inter", 10),
                            command=self._on_board_change).pack(anchor="w", pady=2)
-
-        # ── Dongle Befehle ────────────────────────────────────────────────
-        sep()
-        sec(_t("sec_commands"))
-
-        BW = (W - 8) // 2
-
-        for pairs in [
-            [("Pairing", "pair",   ACCENT), ("List",   "list",   FG)],
-            [("Uptime",  "uptime", FG),     ("Remove", "remove", YELLOW)],
-            [("Clear",   "clear",  RED),    ("Reboot", "reboot", FG_DIM)],
-        ]:
-            row = tk.Frame(body, bg=BG)
-            row.pack(fill="x", padx=20, pady=(0, 6))
-            for text, cmd, color in pairs:
-                RoundedBtn(row, text, lambda c=cmd: self._send_cmd(c),
-                           w=BW, h=32, r=7, p_bg=BG,
-                           fill=BG_BTN, fg=color, hover=BG_BTN_A, hover_fg=FG,
-                           border_col=BORDER, font_spec=("Inter", 10, "bold")
-                           ).pack(side="left", padx=(0, 8))
-
-        RoundedBtn(body, "DFU", lambda: self._send_cmd("dfu"),
-                   w=W, h=32, r=7, p_bg=BG,
-                   fill=BG_BTN, fg=FG_DIM, hover=BG_BTN_A, hover_fg=FG,
-                   border_col=BORDER, font_spec=("Inter", 10, "bold")
-                   ).pack(padx=20, pady=(0, 14))
 
         # ── Motor-Kanäle ──────────────────────────────────────────────────
         sep()
