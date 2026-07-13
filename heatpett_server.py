@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.3.4"
+SERVER_VERSION  = "v3.3.5"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1213,6 +1213,58 @@ class App(tk.Tk):
         img = img.resize((size, size), Image.LANCZOS)
         return ImageTk.PhotoImage(img)
 
+    def _render_gear_icon(self, size=15, active=True):
+        """Draw an 8-tooth gear icon with center hole. Returns PhotoImage or None."""
+        if not PIL_OK:
+            return None
+        import math
+        sc = 5
+        s  = size * sc
+
+        h   = (FG if active else FG_DIM).lstrip('#')
+        rgb = tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+        av  = 255 if active else 70
+
+        cx = cy = s / 2
+        N      = 8
+        r_out  = s * 0.46     # tooth tip radius
+        r_in   = s * 0.315    # tooth base / body radius
+        r_hole = s * 0.135    # center hole radius
+        tfrac  = 0.42         # tooth width as fraction of one slot
+        offset = -math.pi / 2  # first tooth points straight up
+
+        # Build polygon: tooth vertices + arc points along body between teeth
+        pts = []
+        for i in range(N):
+            a0  = offset + 2 * math.pi * i / N
+            a1  = offset + 2 * math.pi * (i + 1) / N
+            mid = (a0 + a1) / 2
+            hw  = (a1 - a0) * tfrac / 2
+            # Left base → left tip → right tip → right base
+            pts.append((cx + r_in  * math.cos(mid - hw),       cy + r_in  * math.sin(mid - hw)))
+            pts.append((cx + r_out * math.cos(mid - hw * 0.7), cy + r_out * math.sin(mid - hw * 0.7)))
+            pts.append((cx + r_out * math.cos(mid + hw * 0.7), cy + r_out * math.sin(mid + hw * 0.7)))
+            pts.append((cx + r_in  * math.cos(mid + hw),       cy + r_in  * math.sin(mid + hw)))
+            # Smooth arc along body between this tooth and the next
+            for j in range(1, 4):
+                aa = mid + hw + (2 * math.pi / N * (1 - tfrac)) * j / 3
+                pts.append((cx + r_in * math.cos(aa), cy + r_in * math.sin(aa)))
+
+        # Build alpha mask: gear shape + body fill, then erase center hole
+        mask = Image.new("L", (s, s), 0)
+        md   = _PilDraw.Draw(mask)
+        md.polygon(pts, fill=255)
+        md.ellipse([cx - r_in,   cy - r_in,   cx + r_in,   cy + r_in],   fill=255)
+        md.ellipse([cx - r_hole, cy - r_hole, cx + r_hole, cy + r_hole], fill=0)
+
+        if av < 255:
+            mask = mask.point(lambda p: p * av // 255)
+
+        img = Image.new("RGBA", (s, s), rgb + (255,))
+        img.putalpha(mask)
+        img = img.resize((size, size), Image.LANCZOS)
+        return ImageTk.PhotoImage(img)
+
     def _render_terminal_icon(self, size=15, active=True):
         """Draw a '>_' terminal icon inside a rounded square. Returns PhotoImage or None."""
         if not PIL_OK:
@@ -1290,11 +1342,14 @@ class App(tk.Tk):
                    press="#5a2525", p_bg=BG_TITLE
                    ).pack(side="right", padx=(0, 6), pady=8)
 
+        _gear_dim = self._render_gear_icon(15, active=False)
+        _gear_on  = self._render_gear_icon(15, active=True)
         RoundedBtn(tb, "⚙", self._open_settings,
                    w=28, h=28, r=7, font_size=13,
                    fill=BG_TITLE, fg=FG_DIM,
                    hover="#2c3a58", hover_fg=FG,
-                   press="#2c3a58", p_bg=BG_TITLE
+                   press="#2c3a58", p_bg=BG_TITLE,
+                   img_normal=_gear_dim, img_hover=_gear_on
                    ).pack(side="right", padx=2, pady=8)
 
         # ── Update button (always visible; gray=aktuell, blue=update) ───────────
