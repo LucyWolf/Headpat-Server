@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.4.0"
+SERVER_VERSION  = "v3.4.1"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1398,12 +1398,12 @@ class App(tk.Tk):
         self._hp_dot = self._dot(status, RED)
         self._hp_dot.pack(side="left")
         tk.Label(status, text="Headpat", bg=BG, fg=FG,
-                 font=("Segoe UI", 11)).pack(side="left", padx=(6, 0))
+                 font=("Inter", 11, "bold")).pack(side="left", padx=(6, 0))
 
         self._vrc_dot = self._dot(status, RED)
         self._vrc_dot.pack(side="left", padx=(18, 0))
         tk.Label(status, text="OSC", bg=BG, fg=FG,
-                 font=("Segoe UI", 11)).pack(side="left", padx=(6, 0))
+                 font=("Inter", 11, "bold")).pack(side="left", padx=(6, 0))
 
         self._bat_lbl = tk.Label(status, text="🔋 ?%", bg=BG, fg=FG_DIM,
                                  font=("Segoe UI", 11))
