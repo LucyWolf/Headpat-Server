@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.5.10"
+SERVER_VERSION  = "v3.5.11"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1713,7 +1713,7 @@ class App(tk.Tk):
         tk.Label(cmd_area, text="DONGLE", bg=BG, fg=FG_DIM,
                  font=("Inter", 8, "bold")).pack(anchor="w", pady=(0, 6))
 
-        CW = 110  # command button width
+        CW = 78  # command button width
 
         for pairs in [
             [("Pairing", "pair",   ACCENT), ("List",   "list",   FG),
@@ -1744,7 +1744,7 @@ class App(tk.Tk):
 
         # ── Position & Anzeige ────────────────────────────────────────────
         win.update_idletasks()
-        rw = max(win.winfo_reqwidth(), 640)
+        rw = 460
         rh = win.winfo_reqheight() + 260   # Platz für Log-Bereich
         self.update_idletasks()
         x = self.winfo_x()
