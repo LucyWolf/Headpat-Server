@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.6.1"
+SERVER_VERSION  = "v3.6.2"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -766,6 +766,11 @@ class App(tk.Tk):
         if not path:
             return
         self._manual_uf2_path = path
+        # Laufwerk schon gemountet? → sofort flashen (z.B. manueller DFU vor Klick)
+        existing = self._known_drives.copy()
+        if existing:
+            self._on_nrf52_drive(existing)
+            return
         ser = self._ser
         if ser and ser.is_open:
             try:
@@ -776,7 +781,7 @@ class App(tk.Tk):
                 self._manual_uf2_path = None
                 self._log(f"DFU-Befehl fehlgeschlagen: {e}", "err")
         else:
-            self._log(f"Flash UF2: {os.path.basename(path)} — DFU-Modus manuell starten, Laufwerk wird erkannt…", "warn")
+            self._log(f"Flash UF2: {os.path.basename(path)} — DFU-Modus manuell starten, dann Laufwerk wird erkannt…", "warn")
 
     def _on_nrf52_drive(self, drives):
         fw = {k: v for k, v in self._updates.items() if k in ("headpat", "dongle")}
