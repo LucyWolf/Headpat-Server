@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.4.8"
+SERVER_VERSION  = "v3.4.9"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -839,11 +839,7 @@ class App(tk.Tk):
         win.overrideredirect(True)
         win.configure(bg=BG_TITLE)
         win.resizable(False, False)
-
-        self.update_idletasks()
-        x = self.winfo_x() + (self.winfo_width() - 340) // 2
-        y = self.winfo_y() + (self.winfo_height() - 220) // 2
-        win.geometry(f"340+{x}+{y}")
+        win.withdraw()
 
         _drag = [0, 0]
         def _drag_start(e):
@@ -946,6 +942,15 @@ class App(tk.Tk):
                    border_col=BORDER,
                    font_spec=("Inter", 11)
                    ).pack(side="right")
+
+        win.update_idletasks()
+        w = win.winfo_reqwidth()
+        h = win.winfo_reqheight()
+        self.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width()  - w) // 2
+        y = self.winfo_y() + (self.winfo_height() - h) // 2
+        win.geometry(f"+{x}+{y}")
+        win.deiconify()
 
     def _initiate_flash(self, key, dialog=None):
         if dialog:
