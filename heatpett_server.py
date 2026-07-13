@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.5.9"
+SERVER_VERSION  = "v3.5.10"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -637,20 +637,20 @@ class App(tk.Tk):
              "dongle-pro-micro-nrf52840.uf2" if self._board_var.get() == "nicenano" else "dongle-holyiot-nrf52840.uf2"),
             ("server",  SERVER_REPO,  asset_win if os.name == "nt" else asset_lin),
         ]
-        found_any  = False
-        had_errors = False
+        found_any    = False
+        net_errors   = 0
+        checks_done  = 0
         for key, repo, asset_name in checks:
             try:
                 data   = self._gh_latest(repo)
+                checks_done += 1
                 tag    = data.get("tag_name", "")
                 if not tag:
                     self._log(f"Update {key}: keine Version in API-Antwort", "warn")
-                    had_errors = True
                     continue
                 assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
                 if asset_name not in assets:
-                    self._log(f"Update {key}: Asset '{asset_name}' nicht in Release {tag}", "warn")
-                    had_errors = True
+                    self._log(f"Update {key}: Asset '{asset_name}' nicht in {tag}", "info")
                     continue
                 existing = self._updates.get(key, {})
                 if existing.get("tag") == tag:
@@ -672,10 +672,10 @@ class App(tk.Tk):
                 threading.Thread(target=self._prefetch, args=(key,), daemon=True).start()
                 found_any = True
             except Exception as e:
-                self._log(f"Update {key}: Fehler – {e}", "warn")
-                had_errors = True
-        self._last_check_had_errors = had_errors
-        if not found_any and not had_errors:
+                self._log(f"Update {key}: Netzwerkfehler – {e}", "warn")
+                net_errors += 1
+        self._last_check_had_errors = (net_errors > 0 and checks_done == 0)
+        if not found_any and checks_done > 0:
             self._log("Alle Komponenten aktuell.", "info")
 
     def _gh_latest(self, repo):
