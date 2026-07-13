@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.2.9"
+SERVER_VERSION  = "v3.3.0"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -430,7 +430,8 @@ class FancySlider(tk.Canvas):
         self.create_oval(cx-r, cy-r, cx+r, cy+r, fill="white", outline=ACCENT, width=2)
 
     def _redraw_pil(self, cx, cy, r):
-        sc    = 6
+        # ── Track at 3× ──────────────────────────────────────────────────────
+        sc    = 3
         W, H  = self._bw * sc, self._bh * sc
         img   = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         d     = _PilDraw.Draw(img)
@@ -442,23 +443,29 @@ class FancySlider(tk.Canvas):
         y2_s  = cy_s + th_s // 2
         x_end = (self._bw - r) * sc
         ac    = self._hx(ACCENT) + (255,)
-        # Inactive track
         d.rounded_rectangle([r_s, y1_s, x_end, y2_s],
                             radius=th_s // 2,
                             fill=self._hx("#1a2548") + (255,))
-        # Active track
         if cx_s > r_s:
             d.rounded_rectangle([r_s, y1_s, min(cx_s, x_end), y2_s],
                                 radius=th_s // 2, fill=ac)
-        # Thumb: outer accent disc then inner white disc (avoids aliased outline)
-        bw_s = sc * 2
-        d.ellipse([cx_s - r_s, cy_s - r_s, cx_s + r_s, cy_s + r_s], fill=ac)
-        d.ellipse([cx_s - r_s + bw_s, cy_s - r_s + bw_s,
-                   cx_s + r_s - bw_s, cy_s + r_s - bw_s],
-                  fill=(255, 255, 255, 255))
-        img   = img.resize((self._bw, self._bh), Image.LANCZOS)
-        bg    = self.cget("bg")
-        base  = Image.new("RGBA", (self._bw, self._bh), self._hx(bg) + (255,))
+        img = img.resize((self._bw, self._bh), Image.LANCZOS)
+
+        # ── Thumb at 10× (separate pass → much smoother circle) ──────────────
+        tsc    = 10
+        td     = r * 2 * tsc
+        th_img = Image.new("RGBA", (td, td), (0, 0, 0, 0))
+        th_d   = _PilDraw.Draw(th_img)
+        bw_t   = tsc * 2
+        th_d.ellipse([0, 0, td - 1, td - 1], fill=ac)
+        th_d.ellipse([bw_t, bw_t, td - bw_t - 1, td - bw_t - 1],
+                     fill=(255, 255, 255, 255))
+        th_img = th_img.resize((r * 2, r * 2), Image.LANCZOS)
+        img.alpha_composite(th_img, (cx - r, cy - r))
+
+        # ── Composite against window background ───────────────────────────────
+        base  = Image.new("RGBA", (self._bw, self._bh),
+                          self._hx(self.cget("bg")) + (255,))
         base.alpha_composite(img)
         photo = ImageTk.PhotoImage(base.convert("RGB"))
         self._photo = photo
@@ -1227,7 +1234,7 @@ class App(tk.Tk):
         # ── Slider (eigene Zeile, full-width) ─────────────────────────────────
         FancySlider(card, variable=self._int_var, from_=0, to=100,
                     command=self._on_intensity_change,
-                    track_h=4, thumb_r=9, p_bg=BG
+                    track_h=4, thumb_r=7, p_bg=BG
                     ).pack(fill="x", padx=16, pady=(0, 14))
 
         # ── Mode row ──────────────────────────────────────────────────────────

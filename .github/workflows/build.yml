@@ -24,7 +24,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install pyserial python-osc pyinstaller
+        run: pip install pyserial python-osc pillow pyinstaller
 
       - name: Inject version from tag
         run: |
@@ -75,7 +75,7 @@ jobs:
         run: sudo apt-get install -y python3-tk libfuse2
 
       - name: Install Python dependencies
-        run: pip install pyserial python-osc pyinstaller
+        run: pip install pyserial python-osc pillow pyinstaller
 
       - name: Inject version from tag
         run: |
