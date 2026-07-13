@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.3.1"
+SERVER_VERSION  = "v3.3.2"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -601,17 +601,24 @@ class App(tk.Tk):
              "dongle-pro-micro-nrf52840.uf2" if self._board_var.get() == "nicenano" else "dongle-holyiot-nrf52840.uf2"),
             ("server",  SERVER_REPO,  asset_win if os.name == "nt" else asset_lin),
         ]
+        found_any = False
         for key, repo, asset_name in checks:
             try:
                 data   = self._gh_latest(repo)
                 tag    = data.get("tag_name", "")
+                if not tag:
+                    self._log(f"Update {key}: keine Version in API-Antwort", "warn")
+                    continue
                 assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
                 if asset_name not in assets:
+                    self._log(f"Update {key}: Asset '{asset_name}' nicht in Release {tag}", "warn")
                     continue
                 existing = self._updates.get(key, {})
                 if existing.get("tag") == tag:
+                    found_any = True
                     continue
                 if key == "server" and self._parse_ver(tag) <= self._parse_ver(SERVER_VERSION):
+                    self._log(f"Server aktuell ({SERVER_VERSION}), neueste: {tag}", "info")
                     continue
                 if key == "dongle" and self._dongle_version != "?" and \
                         self._parse_ver(tag) <= self._parse_ver(self._dongle_version):
@@ -619,12 +626,16 @@ class App(tk.Tk):
                 if key == "headpat" and self._hp_version != "?" and \
                         self._parse_ver(tag) <= self._parse_ver(self._hp_version):
                     continue
+                self._log(f"Update {key}: {tag} verfügbar", "info")
                 self._updates[key] = {"tag": tag, "url": assets[asset_name],
                                       "asset": asset_name, "path": None}
                 self._q.put(("update_found", (key, tag)))
                 threading.Thread(target=self._prefetch, args=(key,), daemon=True).start()
-            except Exception:
-                pass
+                found_any = True
+            except Exception as e:
+                self._log(f"Update {key}: Fehler – {e}", "warn")
+        if not found_any:
+            self._log("Alle Komponenten aktuell.", "info")
 
     def _gh_latest(self, repo):
         url = f"https://api.github.com/repos/{GITHUB_OWNER}/{repo}/releases/latest"
