@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.4.2"
+SERVER_VERSION  = "v3.4.3"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -141,7 +141,7 @@ class RoundedBtn(tk.Canvas):
 
     def __init__(self, parent, text, command, w=80, h=30, r=10,
                  fill=BG_BTN, fg=FG, hover=BG_BTN_A, press=None,
-                 hover_fg=None, font_size=10, border_col=None, p_bg=BG,
+                 hover_fg=None, font_size=10, font_spec=None, border_col=None, p_bg=BG,
                  img_normal=None, img_hover=None, **kw):
         super().__init__(parent, width=w, height=h,
                          bg=p_bg, highlightthickness=0, cursor="hand2", **kw)
@@ -152,6 +152,7 @@ class RoundedBtn(tk.Canvas):
         self._press      = press or hover
         self._hover_fg   = hover_fg if hover_fg is not None else fg
         self._font_size  = font_size
+        self._font_spec  = font_spec if font_spec is not None else ("Segoe UI", font_size)
         self._border_col = border_col
         self._p_bg       = p_bg
         self._photo      = None
@@ -214,7 +215,7 @@ class RoundedBtn(tk.Canvas):
         else:
             self.create_text(w//2, h//2, text=self._text,
                              fill=text_fg if text_fg is not None else self._fg,
-                             font=("Segoe UI", self._font_size))
+                             font=self._font_spec)
 
     def _on_press(self, _):
         self._draw(self._press, self._hover_fg)
@@ -1330,13 +1331,13 @@ class App(tk.Tk):
         dot.bind("<B1-Motion>",     self._drag_move)
 
         name_lbl = tk.Label(tb, text="Headpat Server",
-                            bg=BG_TITLE, fg=FG, font=("Segoe UI", 11, "bold"))
+                            bg=BG_TITLE, fg=FG, font=("Inter", 14, "bold"))
         name_lbl.pack(side="left", pady=10)
         name_lbl.bind("<ButtonPress-1>", self._drag_start)
         name_lbl.bind("<B1-Motion>",     self._drag_move)
 
         ver_lbl = tk.Label(tb, text=SERVER_VERSION,
-                           bg=BG_TITLE, fg=FG_DIM, font=("Segoe UI", 10))
+                           bg=BG_TITLE, fg=FG_DIM, font=("Inter", 12))
         ver_lbl.pack(side="left", padx=(5, 0), pady=10)
         ver_lbl.bind("<ButtonPress-1>", self._drag_start)
         ver_lbl.bind("<B1-Motion>",     self._drag_move)
@@ -1398,26 +1399,26 @@ class App(tk.Tk):
         self._hp_dot = self._dot(status, RED)
         self._hp_dot.pack(side="left")
         tk.Label(status, text="Headpat", bg=BG, fg=FG,
-                 font=("Inter", 11, "bold")).pack(side="left", padx=(6, 0))
+                 font=("Inter", 14, "bold")).pack(side="left", padx=(6, 0))
 
         self._vrc_dot = self._dot(status, RED)
         self._vrc_dot.pack(side="left", padx=(18, 0))
         tk.Label(status, text="OSC", bg=BG, fg=FG,
-                 font=("Inter", 11, "bold")).pack(side="left", padx=(6, 0))
+                 font=("Inter", 14, "bold")).pack(side="left", padx=(6, 0))
 
         self._bat_lbl = tk.Label(status, text="🔋 ?%", bg=BG, fg=FG_DIM,
-                                 font=("Segoe UI", 11))
+                                 font=("JetBrains Mono", 13))
         self._bat_lbl.pack(side="right")
 
         # ── Intensity label + % ───────────────────────────────────────────────
         int_label_row = tk.Frame(card, bg=BG)
         int_label_row.pack(fill="x", padx=20, pady=(18, 2))
         tk.Label(int_label_row, text="Intensity", bg=BG, fg=FG,
-                 font=("Inter", 11, "bold")).pack(side="left")
+                 font=("Inter", 13, "bold")).pack(side="left")
         self._int_var     = tk.DoubleVar(value=50)
         self._int_pct_var = tk.StringVar(value="50%")
         tk.Label(int_label_row, textvariable=self._int_pct_var, bg=BG, fg=ACCENT,
-                 font=("Segoe UI", 11, "bold")).pack(side="right")
+                 font=("JetBrains Mono", 13, "bold")).pack(side="right")
 
         # ── Slider (eigene Zeile, full-width) ─────────────────────────────────
         FancySlider(card, variable=self._int_var, from_=0, to=100,
@@ -1446,7 +1447,7 @@ class App(tk.Tk):
         test_row.pack(fill="x", padx=20, pady=(16, 22))
 
         tk.Label(test_row, text="Test", bg=BG, fg=FG,
-                 font=("Inter", 11, "bold")).pack(side="left")
+                 font=("Inter", 13, "bold")).pack(side="left")
 
         self._mkbtn(test_row, "R", self._pat_right).pack(side="right")
         self._mkbtn(test_row, "L", self._pat_left).pack(side="right", padx=(0, 10))
@@ -1469,7 +1470,8 @@ class App(tk.Tk):
                           w=50, h=36, r=8, p_bg=BG,
                           fill=BG_BTN, fg=FG,
                           hover=BG_BTN, hover_fg=FG,
-                          press=ACCENT, border_col=BORDER)
+                          press=ACCENT, border_col=BORDER,
+                          font_spec=("Inter", 13, "bold"))
 
     # ── Drag ──────────────────────────────────────────────────────────────────
     def _drag_start(self, e):
