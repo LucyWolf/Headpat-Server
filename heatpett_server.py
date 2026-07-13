@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.3.2"
+SERVER_VERSION  = "v3.3.3"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -557,7 +557,10 @@ class App(tk.Tk):
         self._save_after_id  = None
         self._updates        = {}   # "headpat"|"dongle"|"server" -> {tag, url, asset, path}
         self._known_drives   = set()
-        self._badge_lbl      = None
+        self._badge_lbl      = None   # kept for compat
+        self._badge_cvs      = None
+        self._sync_img_dim   = None
+        self._sync_img_on    = None
         self._pending_flash  = None
 
         self._load_icon()
@@ -653,11 +656,8 @@ class App(tk.Tk):
                 if self._parse_ver(self._updates[key]["tag"]) <= self._parse_ver(cur):
                     del self._updates[key]
                     changed = True
-        if changed and self._badge_lbl:
-            if self._updates:
-                self._badge_lbl.pack(side="right", padx=(0, 2))
-            else:
-                self._badge_lbl.pack_forget()
+        if changed:
+            self._set_badge_active(bool(self._updates))
 
     def _prefetch(self, key):
         entry = self._updates.get(key)
@@ -1158,6 +1158,60 @@ class App(tk.Tk):
         except Exception:
             pass
 
+    # ── Sync icon ─────────────────────────────────────────────────────────────
+    def _render_sync_icon(self, size=18, active=True):
+        """Draw a circular-arrows refresh icon. Returns PhotoImage or None."""
+        if not PIL_OK:
+            return None
+        import math
+        sc = 5
+        s  = size * sc
+        img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+        d   = _PilDraw.Draw(img)
+
+        h   = (ACCENT if active else FG_DIM).lstrip('#')
+        col = tuple(int(h[i:i+2], 16) for i in (0, 2, 4)) + (255 if active else 70,)
+
+        cx = cy = s / 2
+        r  = s * 0.37
+        lw = max(int(s * 0.15), 2)
+        bb = [cx - r, cy - r, cx + r, cy + r]
+        g  = 22  # gap in degrees at each arrowhead
+
+        # Arc 1: right+bottom half (300° → 98° clockwise, through east & south)
+        d.arc(bb, start=300 + g, end=120 - g, fill=col, width=lw)
+        # Arc 2: left+top half  (142° → 278° clockwise, through west & north)
+        d.arc(bb, start=120 + g, end=300 - g, fill=col, width=lw)
+
+        def arrowhead(angle_deg):
+            a   = math.radians(angle_deg)
+            tx  = cx + r * math.cos(a)
+            ty  = cy + r * math.sin(a)
+            Tx, Ty = -math.sin(a), math.cos(a)   # clockwise tangent
+            hw  = lw * 1.1
+            dep = lw * 1.3
+            p1  = (tx + hw * math.cos(a) - dep * Tx,
+                   ty + hw * math.sin(a) - dep * Ty)
+            p2  = (tx - hw * math.cos(a) - dep * Tx,
+                   ty - hw * math.sin(a) - dep * Ty)
+            p3  = (tx + lw * 0.4 * Tx, ty + lw * 0.4 * Ty)
+            d.polygon([p1, p2, p3], fill=col)
+
+        arrowhead(120 - g)   # end of arc 1
+        arrowhead(300 - g)   # end of arc 2
+
+        img = img.resize((size, size), Image.LANCZOS)
+        return ImageTk.PhotoImage(img)
+
+    def _set_badge_active(self, active: bool):
+        if self._badge_cvs is None:
+            return
+        if PIL_OK and self._sync_img_on:
+            img = self._sync_img_on if active else self._sync_img_dim
+            self._badge_cvs.itemconfig("icon", image=img)
+        else:
+            self._badge_cvs.itemconfig("icon", fill=ACCENT if active else FG_DIM)
+
     # ── Build UI ──────────────────────────────────────────────────────────────
     def _build(self):
         # ── Title bar ─────────────────────────────────────────────────────────
@@ -1194,11 +1248,23 @@ class App(tk.Tk):
                    press="#2c3a58", p_bg=BG_TITLE
                    ).pack(side="right", padx=2, pady=8)
 
-        self._badge_lbl = tk.Label(tb, text="↑", bg=BG_TITLE, fg=YELLOW,
-                                   font=("Segoe UI", 13, "bold"), cursor="hand2", padx=6)
-        self._badge_lbl.bind("<Button-1>", lambda _: self._open_update_dialog())
-        self._badge_lbl.bind("<Enter>",    lambda _: self._badge_lbl.config(fg=GREEN))
-        self._badge_lbl.bind("<Leave>",    lambda _: self._badge_lbl.config(fg=YELLOW))
+        # ── Update button (always visible; gray=aktuell, blue=update) ───────────
+        self._sync_img_dim = self._render_sync_icon(17, active=False)
+        self._sync_img_on  = self._render_sync_icon(17, active=True)
+        bsz = 28
+        self._badge_cvs = tk.Canvas(tb, width=bsz, height=bsz,
+                                    bg=BG_TITLE, highlightthickness=0, cursor="hand2")
+        self._badge_cvs.pack(side="right", padx=2, pady=8)
+        if PIL_OK and self._sync_img_dim:
+            self._badge_cvs.create_image(bsz // 2, bsz // 2,
+                                         image=self._sync_img_dim,
+                                         anchor="center", tags="icon")
+        else:
+            self._badge_cvs.create_text(bsz // 2, bsz // 2, text="↺",
+                                        fill=FG_DIM, font=("Segoe UI", 14),
+                                        tags="icon")
+        self._badge_cvs.bind("<Button-1>", lambda _: self._open_update_dialog())
+        self._badge_lbl = self._badge_cvs   # compat alias
 
         self._log_btn = RoundedBtn(tb, "≡", self._toggle_console,
                                    w=28, h=28, r=7, font_size=15,
@@ -1924,8 +1990,7 @@ class App(tk.Tk):
                     key, ver = val
                     names = {"headpat": "Headpat", "dongle": "Dongle", "server": "Server"}
                     self._log(f"Update verfügbar: {names.get(key, key)} {ver}", "warn")
-                    if self._badge_lbl:
-                        self._badge_lbl.pack(side="right", padx=(0, 2))
+                    self._set_badge_active(True)
                 elif tag == "nrf52_drive":
                     self._on_nrf52_drive(val)
                 elif tag == "log":
