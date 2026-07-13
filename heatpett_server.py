@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.4.9"
+SERVER_VERSION  = "v3.5.0"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -849,57 +849,55 @@ class App(tk.Tk):
             win.geometry(f"+{e.x_root - _drag[0]}+{e.y_root - _drag[1]}")
 
         # ── Titlebar ──────────────────────────────────────────────────────
-        tb = tk.Frame(win, bg=BG_TITLE, height=44)
+        tb = tk.Frame(win, bg=BG_TITLE, height=36)
         tb.pack(fill="x")
         tb.pack_propagate(False)
-        for w in (tb,):
-            w.bind("<ButtonPress-1>", _drag_start)
-            w.bind("<B1-Motion>",     _drag_move)
+        tb.bind("<ButtonPress-1>", _drag_start)
+        tb.bind("<B1-Motion>",     _drag_move)
 
-        dot = tk.Canvas(tb, width=9, height=9, bg=BG_TITLE, highlightthickness=0)
-        dot.create_oval(0, 0, 8, 8, fill=ACCENT, outline="")
-        dot.pack(side="left", padx=(14, 7), pady=18)
+        dot = tk.Canvas(tb, width=8, height=8, bg=BG_TITLE, highlightthickness=0)
+        dot.create_oval(0, 0, 7, 7, fill=ACCENT, outline="")
+        dot.pack(side="left", padx=(12, 6), pady=14)
         dot.bind("<ButtonPress-1>", _drag_start)
         dot.bind("<B1-Motion>",     _drag_move)
 
         title_lbl = tk.Label(tb, text="Updates", bg=BG_TITLE, fg=FG,
-                             font=("Inter", 13, "bold"))
+                             font=("Inter", 11, "bold"))
         title_lbl.pack(side="left")
         title_lbl.bind("<ButtonPress-1>", _drag_start)
         title_lbl.bind("<B1-Motion>",     _drag_move)
 
         RoundedBtn(tb, "✕", win.destroy,
-                   w=28, h=28, r=7, font_size=13,
+                   w=24, h=24, r=6, font_size=11,
                    fill=BG_TITLE, fg=FG_DIM,
                    hover="#452525", hover_fg=RED,
                    press="#5a2525", p_bg=BG_TITLE
-                   ).pack(side="right", padx=(0, 6), pady=8)
+                   ).pack(side="right", padx=(0, 5), pady=6)
 
         # ── Body ──────────────────────────────────────────────────────────
         body = tk.Frame(win, bg=BG)
         body.pack(fill="both", expand=True)
 
         head = tk.Frame(body, bg=BG)
-        head.pack(fill="x", padx=20, pady=(16, 10))
+        head.pack(fill="x", padx=14, pady=(12, 6))
         tk.Label(head, text=_t("upd_available"), bg=BG, fg=FG,
-                 font=("Inter", 13, "bold"), anchor="w").pack(anchor="w")
+                 font=("Inter", 11, "bold"), anchor="w").pack(anchor="w")
         tk.Label(head, text=_t("upd_usb_hint"), bg=BG, fg=FG_DIM,
-                 font=("Inter", 10), justify="left", anchor="w").pack(anchor="w", pady=(3, 0))
+                 font=("Inter", 9), justify="left", anchor="w").pack(anchor="w", pady=(2, 0))
 
         labels = {"headpat": "Headpat Firmware", "dongle": "Dongle Firmware", "server": "Server"}
         if self._updates:
-            first = True
             for key, entry in self._updates.items():
-                tk.Frame(body, bg=BORDER, height=1).pack(fill="x", padx=20)
+                tk.Frame(body, bg=BORDER, height=1).pack(fill="x", padx=14)
                 row = tk.Frame(body, bg=BG)
-                row.pack(fill="x", padx=20, pady=10)
+                row.pack(fill="x", padx=14, pady=7)
 
                 info = tk.Frame(row, bg=BG)
                 info.pack(side="left")
                 tk.Label(info, text=entry["tag"], bg=BG, fg=ACCENT,
-                         font=("Inter", 11, "bold")).pack(side="left", padx=(0, 8))
+                         font=("Inter", 10, "bold")).pack(side="left", padx=(0, 7))
                 tk.Label(info, text=labels.get(key, key), bg=BG, fg=FG,
-                         font=("Inter", 11, "bold")).pack(side="left")
+                         font=("Inter", 10, "bold")).pack(side="left")
 
                 if key == "server":
                     cmd = lambda k=key, w=win: (w.destroy(), self._server_update(k))
@@ -908,14 +906,14 @@ class App(tk.Tk):
                     cmd = lambda k=key, w=win: self._initiate_flash(k, w)
                     lbl = _t("btn_flash")
                 RoundedBtn(row, lbl, cmd,
-                           w=92, h=30, r=8, p_bg=BG,
+                           w=80, h=26, r=7, p_bg=BG,
                            fill=ACCENT, fg="#ffffff",
                            hover="#5591ff", hover_fg="#ffffff",
-                           font_spec=("Inter", 10, "bold")
+                           font_spec=("Inter", 9, "bold")
                            ).pack(side="right")
         else:
             tk.Label(body, text=_t("upd_all_ok"), bg=BG, fg=FG_DIM,
-                     font=("Inter", 10), pady=14).pack()
+                     font=("Inter", 10), pady=10).pack()
 
         # ── Bottom ────────────────────────────────────────────────────────
         def _refresh():
@@ -928,19 +926,19 @@ class App(tk.Tk):
 
         tk.Frame(body, bg=BORDER, height=1).pack(fill="x")
         bottom = tk.Frame(body, bg=BG)
-        bottom.pack(fill="x", padx=20, pady=(12, 16))
+        bottom.pack(fill="x", padx=14, pady=(10, 12))
         RoundedBtn(bottom, _t("btn_refresh"), _refresh,
-                   w=130, h=34, r=9, p_bg=BG,
+                   w=110, h=30, r=8, p_bg=BG,
                    fill=ACCENT, fg="#ffffff",
                    hover="#5591ff", hover_fg="#ffffff",
-                   font_spec=("Inter", 11, "bold")
+                   font_spec=("Inter", 10, "bold")
                    ).pack(side="left")
         RoundedBtn(bottom, _t("btn_close"), win.destroy,
-                   w=100, h=34, r=9, p_bg=BG,
+                   w=88, h=30, r=8, p_bg=BG,
                    fill=BG_BTN, fg=FG_DIM,
                    hover=BG_BTN_A, hover_fg=FG,
                    border_col=BORDER,
-                   font_spec=("Inter", 11)
+                   font_spec=("Inter", 10)
                    ).pack(side="right")
 
         win.update_idletasks()
