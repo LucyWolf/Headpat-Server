@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.4.1"
+SERVER_VERSION  = "v3.4.2"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -317,7 +317,7 @@ class SegmentedControl(tk.Canvas):
             cx = self._seg_x(i) + self._seg_w // 2
             cy = self._pad + self._h // 2
             self.create_text(cx, cy, text=label, fill=fg_c,
-                             font=("Segoe UI", 10, bold))
+                             font=("Inter", 13, bold))
 
     def _draw_poly(self):
         w, h, r = self._tw, self._th, self._r_cont
@@ -345,7 +345,7 @@ class SegmentedControl(tk.Canvas):
             cx = x1 + self._seg_w // 2
             cy = y1 + self._h // 2
             self.create_text(cx, cy, text=label, fill=fg_c,
-                             font=("Segoe UI", 10, bold))
+                             font=("Inter", 13, bold))
 
     def _hit(self, x):
         for i in range(len(self._labels)):
@@ -1429,7 +1429,7 @@ class App(tk.Tk):
         mode_row = tk.Frame(card, bg=BG)
         mode_row.pack(fill="x", padx=20, pady=(14, 14))
         tk.Label(mode_row, text="Modus", bg=BG, fg=FG,
-                 font=("Inter", 11, "bold")).pack(side="left")
+                 font=("Inter", 13, "bold")).pack(side="left")
 
         def _select_mode(m):
             self._vib_mode = m
