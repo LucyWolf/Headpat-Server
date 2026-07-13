@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.6.3"
+SERVER_VERSION  = "v3.6.4"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 
@@ -554,8 +554,9 @@ class App(tk.Tk):
         self._port_var       = tk.StringVar(value=self._cfg.get("port", ""))
         self._board_var      = tk.StringVar(value=self._cfg.get("dongle_board", "nicenano"))
         self._lang_var       = tk.StringVar(value=self._cfg.get("lang", "de"))
-        self._settings_open  = False
-        self._settings_win   = None
+        self._settings_open     = False
+        self._settings_win      = None
+        self._settings_conn_btn = None
         self._osc_verbose    = bool(self._cfg.get("osc_verbose", False))
         self._vib_mode       = int(self._cfg.get("vib_mode", 0))  # 0=proximity 1=trigger
         self._console_win    = None
@@ -1887,7 +1888,7 @@ class App(tk.Tk):
                                                               expand=True, padx=(0, 8))
 
         is_connected = self._ser is not None
-        RoundedBtn(body,
+        self._settings_conn_btn = RoundedBtn(body,
                    "Disconnect" if is_connected else "Connect",
                    self._toggle_serial,
                    w=W, h=34, r=9, p_bg=BG,
@@ -1896,7 +1897,8 @@ class App(tk.Tk):
                    hover="#c0392b" if is_connected else "#5591ff",
                    hover_fg="#ffffff",
                    font_spec=("Inter", 11, "bold")
-                   ).pack(padx=20, pady=(0, 14))
+                   )
+        self._settings_conn_btn.pack(padx=20, pady=(0, 14))
 
         # ── Dongle-Board ──────────────────────────────────────────────────
         sep()
@@ -2042,6 +2044,7 @@ class App(tk.Tk):
         if self._settings_win and self._settings_win.winfo_exists():
             self._settings_win.destroy()
         self._settings_win = None
+        self._settings_conn_btn = None
 
     # ── Serial ────────────────────────────────────────────────────────────────
     def _refresh_ports(self):
@@ -2094,6 +2097,19 @@ class App(tk.Tk):
         else:
             self._connect()
 
+    def _update_conn_btn(self):
+        btn = self._settings_conn_btn
+        if not btn or not btn.winfo_exists():
+            return
+        connected = self._ser is not None
+        btn._text = "Disconnect" if connected else "Connect"
+        btn.set_style(
+            RED    if connected else ACCENT,
+            "#ffffff",
+            "#c0392b" if connected else "#5591ff",
+            "#ffffff",
+        )
+
     def _connect(self):
         port = self._port_var.get()
         if not SERIAL_OK:
@@ -2112,6 +2128,7 @@ class App(tk.Tk):
             self._log(f"Serial verbunden: {port}", "info")
             threading.Thread(target=self._serial_loop, daemon=True).start()
             self._save_config()
+            self.after(0, self._update_conn_btn)
         except Exception as e:
             self._log(f"Serial Fehler: {e}", "err")
 
@@ -2134,6 +2151,7 @@ class App(tk.Tk):
         self._updates.pop("dongle",  None)
         self._log("Serial getrennt", "warn")
         self._save_config()
+        self.after(0, self._update_conn_btn)
 
     def _serial_loop(self):
         last_info = 0.0
