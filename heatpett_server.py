@@ -949,6 +949,7 @@ class App(tk.Tk):
         y = self.winfo_y() + (self.winfo_height() - h) // 2
         win.geometry(f"+{x}+{y}")
         win.deiconify()
+        self.after(0, lambda: self._round_toplevel(win))
 
     def _initiate_flash(self, key, dialog=None):
         if dialog:
@@ -1138,6 +1139,17 @@ class App(tk.Tk):
             hwnd = ctypes.windll.user32.GetAncestor(self.winfo_id(), 2)
             # DWMWA_WINDOW_CORNER_PREFERENCE=33, DWMWCP_ROUND=2 (Windows 11)
             val = ctypes.c_int(2)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 33, ctypes.byref(val), ctypes.sizeof(val))
+        except Exception:
+            pass
+
+    def _round_toplevel(self, widget):
+        if os.name != "nt":
+            return
+        try:
+            import ctypes
+            hwnd = ctypes.windll.user32.GetAncestor(widget.winfo_id(), 2)
+            val  = ctypes.c_int(2)
             ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 33, ctypes.byref(val), ctypes.sizeof(val))
         except Exception:
             pass
@@ -1903,6 +1915,7 @@ class App(tk.Tk):
         y = self.winfo_y()
         win.geometry(f"+{x}+{y}")
         win.deiconify()
+        self.after(0, lambda: self._round_toplevel(win))
 
     # ── Restart ───────────────────────────────────────────────────────────────
     def _restart_app(self):
