@@ -1893,21 +1893,6 @@ class App(tk.Tk):
             _draw_toggle(_as_state[0])
         toggle_cvs.bind("<Button-1>", _toggle_autostart)
 
-        # ── Updates ───────────────────────────────────────────────────────
-        sep()
-        def _check_now():
-            def _run():
-                self._check_all_releases()
-                self.after(0, self._open_update_dialog)
-            threading.Thread(target=_run, daemon=True).start()
-            self._log("Suche nach Updates…", "info")
-        RoundedBtn(body, _t("btn_check_updates"), _check_now,
-                   w=W, h=34, r=9, p_bg=BG,
-                   fill=ACCENT, fg="#ffffff",
-                   hover="#5591ff", hover_fg="#ffffff",
-                   font_spec=("Inter", 11, "bold")
-                   ).pack(padx=20, pady=14)
-
         # ── Positionierung ────────────────────────────────────────────────
         win.update_idletasks()
         self.update_idletasks()
