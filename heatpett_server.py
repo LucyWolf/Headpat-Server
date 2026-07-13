@@ -1711,15 +1711,12 @@ class App(tk.Tk):
         title_lbl.pack(side="left")
         _bind_drag(title_lbl)
 
-        tl = tk.Frame(tb, bg=BG_TITLE)
-        tl.pack(side="right", padx=(0, 14))
-        for col, cmd in [(FG_DIM, None), (FG_DIM, None), (RED, self._close_settings)]:
-            c = tk.Canvas(tl, width=12, height=12, bg=BG_TITLE,
-                          highlightthickness=0, cursor="hand2" if cmd else "")
-            c.create_oval(1, 1, 11, 11, fill=col, outline="")
-            c.pack(side="left", padx=3)
-            if cmd:
-                c.bind("<Button-1>", lambda e, fn=cmd: fn())
+        RoundedBtn(tb, "✕", self._close_settings,
+                   w=28, h=28, r=7, font_size=13,
+                   fill=BG_TITLE, fg=FG_DIM,
+                   hover="#452525", hover_fg=RED,
+                   press="#5a2525", p_bg=BG_TITLE
+                   ).pack(side="right", padx=(0, 6), pady=8)
 
         # ── Body ──────────────────────────────────────────────────────────
         body = tk.Frame(win, bg=BG)
