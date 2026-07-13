@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.3.6"
+SERVER_VERSION  = "v3.3.7"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1380,8 +1380,6 @@ class App(tk.Tk):
                                    img_normal=_term_dim, img_hover=_term_on)
         self._log_btn.pack(side="right", padx=2, pady=8)
 
-        # ── Thin accent line under title ──────────────────────────────────────
-        tk.Frame(self, bg=ACCENT, height=2).pack(fill="x")
 
         # ── Main card ─────────────────────────────────────────────────────────
         card = tk.Frame(self, bg=BG)
