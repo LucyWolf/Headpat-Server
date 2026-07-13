@@ -2,7 +2,7 @@
 """Headpat Server v2.6 — VRChat OSC <-> Headpat Dongle USB bridge"""
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog as tk_filedialog
 import threading
 import queue
 import collections
@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.6.0"
+SERVER_VERSION  = "v3.6.1"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -584,6 +584,8 @@ class App(tk.Tk):
         self._save_after_id  = None
         self._updates               = {}   # "headpat"|"dongle"|"server" -> {tag, url, asset, path}
         self._last_check_had_errors = False
+        self._manual_uf2_path       = None
+        self._pending_flash         = None
         self._known_drives   = set()
         self._badge_lbl      = None   # kept for compat
         self._badge_cvs      = None
@@ -756,13 +758,47 @@ class App(tk.Tk):
                         found.add(p)
         return found
 
+    def _pick_and_flash_uf2(self):
+        path = tk_filedialog.askopenfilename(
+            title="UF2-Firmware wählen",
+            filetypes=[("UF2 Firmware", "*.uf2"), ("Alle Dateien", "*.*")],
+        )
+        if not path:
+            return
+        self._manual_uf2_path = path
+        ser = self._ser
+        if ser and ser.is_open:
+            try:
+                ser.write(b"dfu\n")
+                self._log(f"Flash UF2: {os.path.basename(path)} — DFU-Befehl gesendet, warte auf Laufwerk…", "info")
+                self.after(500, self._disconnect)
+            except Exception as e:
+                self._manual_uf2_path = None
+                self._log(f"DFU-Befehl fehlgeschlagen: {e}", "err")
+        else:
+            self._log(f"Flash UF2: {os.path.basename(path)} — DFU-Modus manuell starten, Laufwerk wird erkannt…", "warn")
+
     def _on_nrf52_drive(self, drives):
         fw = {k: v for k, v in self._updates.items() if k in ("headpat", "dongle")}
         drive = next(iter(drives))
         self._log(f"NRF52-Laufwerk erkannt: {drive}", "info")
 
+        # Manuell gewählte UF2-Datei hat Vorrang
+        if self._manual_uf2_path and os.path.isfile(self._manual_uf2_path):
+            path = self._manual_uf2_path
+            self._manual_uf2_path = None
+            self._pending_flash   = None
+            self._log(f"Manueller Flash: {os.path.basename(path)}", "info")
+            try:
+                shutil.copy2(path, os.path.join(drive, os.path.basename(path)))
+                self._log("Flash erfolgreich — Dongle startet neu…", "info")
+                self.after(4000, self._connect)
+            except Exception as e:
+                self._log(f"Flash fehlgeschlagen: {e}", "err")
+            return
+
         if not fw:
-            self._log("Kein Firmware-Update verfügbar", "warn")
+            self._log("Kein Firmware-Update verfügbar — UF2 manuell flashen?", "warn")
             return
 
         # Use pending flash key if set (triggered by _initiate_flash)
@@ -1739,6 +1775,11 @@ class App(tk.Tk):
         RoundedBtn(dfu_row, "DFU", lambda: self._send_cmd("dfu"),
                    w=CW, h=30, r=7, p_bg=BG,
                    fill=BG_BTN, fg=FG_DIM, hover=BG_BTN_A, hover_fg=FG,
+                   border_col=BORDER, font_spec=("Inter", 10, "bold")
+                   ).pack(side="left", padx=(0, 6))
+        RoundedBtn(dfu_row, "Flash UF2…", self._pick_and_flash_uf2,
+                   w=CW, h=30, r=7, p_bg=BG,
+                   fill=BG_BTN, fg=YELLOW, hover=BG_BTN_A, hover_fg=YELLOW,
                    border_col=BORDER, font_spec=("Inter", 10, "bold")
                    ).pack(side="left")
 
