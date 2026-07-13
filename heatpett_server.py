@@ -1849,6 +1849,14 @@ class App(tk.Tk):
         CH_VALS   = ("both", "left", "right")
         CH_LABELS = (_t("ch_both"), _t("ch_left"), _t("ch_right"))
 
+        # Spaltenköpfe
+        hdr = tk.Frame(body, bg=BG)
+        hdr.pack(fill="x", padx=20, pady=(0, 4))
+        tk.Label(hdr, text="OSC-Parameter", bg=BG, fg=FG_DIM,
+                 font=("Inter", 8)).pack(side="left")
+        tk.Label(hdr, text="Motor", bg=BG, fg=FG_DIM,
+                 font=("Inter", 8)).pack(side="left", padx=(78, 0))
+
         motor_frame = tk.Frame(body, bg=BG)
         motor_frame.pack(fill="x", padx=20, pady=(0, 6))
 
@@ -1901,7 +1909,8 @@ class App(tk.Tk):
         _rebuild_channels()
 
         def _add_channel():
-            self._motor_channels.append({"osc_key": "neu", "ch": "both"})
+            n = len(self._motor_channels) + 1
+            self._motor_channels.append({"osc_key": f"motor_{n}", "ch": "both"})
             self._save_config()
             _rebuild_channels()
 
