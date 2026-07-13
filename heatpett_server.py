@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.5.1"
+SERVER_VERSION  = "v3.5.2"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1680,125 +1680,172 @@ class App(tk.Tk):
 
         win = tk.Toplevel(self)
         self._settings_win = win
-        win.title("Einstellungen")
+        win.overrideredirect(True)
         win.configure(bg=BG_TITLE)
         win.resizable(False, False)
-        win.protocol("WM_DELETE_WINDOW", self._close_settings)
+        win.withdraw()
 
-        self.update_idletasks()
-        x = self.winfo_x() + self.winfo_width() + 8
-        y = self.winfo_y()
-        win.geometry(f"+{x}+{y}")
+        _drag = [0, 0]
+        def _drag_start(e):
+            _drag[0] = e.x_root - win.winfo_x()
+            _drag[1] = e.y_root - win.winfo_y()
+        def _drag_move(e):
+            win.geometry(f"+{e.x_root - _drag[0]}+{e.y_root - _drag[1]}")
+        def _bind_drag(w):
+            w.bind("<ButtonPress-1>", _drag_start)
+            w.bind("<B1-Motion>",     _drag_move)
 
-        tk.Frame(win, bg=ACCENT, height=2).pack(fill="x")
-        tk.Label(win, text=_t("settings_title"), bg=BG_TITLE, fg=FG,
-                 font=("Segoe UI", 12, "bold"), pady=14).pack(padx=20, anchor="w")
+        # ── Titlebar ──────────────────────────────────────────────────────
+        tb = tk.Frame(win, bg=BG_TITLE, height=44)
+        tb.pack(fill="x")
+        tb.pack_propagate(False)
+        _bind_drag(tb)
 
-        def sep(): tk.Frame(win, bg=BORDER, height=1).pack(fill="x", padx=12)
-        def sec(t): tk.Label(win, text=t, bg=BG_TITLE, fg=FG_DIM,
-                             font=("Segoe UI", 9)).pack(anchor="w", padx=16, pady=(10, 4))
+        dot = tk.Canvas(tb, width=9, height=9, bg=BG_TITLE, highlightthickness=0)
+        dot.create_oval(0, 0, 8, 8, fill=ACCENT, outline="")
+        dot.pack(side="left", padx=(14, 7), pady=18)
+        _bind_drag(dot)
 
-        # ── Verbindung ──
-        sep()
-        sec(_t("sec_connection"))
-        conn_row = tk.Frame(win, bg=BG_TITLE)
-        conn_row.pack(fill="x", padx=16, pady=(0, 14))
+        title_lbl = tk.Label(tb, text=_t("settings_title"), bg=BG_TITLE, fg=FG,
+                             font=("Inter", 11, "bold"))
+        title_lbl.pack(side="left")
+        _bind_drag(title_lbl)
 
+        tl = tk.Frame(tb, bg=BG_TITLE)
+        tl.pack(side="right", padx=(0, 14))
+        for col, cmd in [(FG_DIM, None), (FG_DIM, None), (RED, self._close_settings)]:
+            c = tk.Canvas(tl, width=12, height=12, bg=BG_TITLE,
+                          highlightthickness=0, cursor="hand2" if cmd else "")
+            c.create_oval(1, 1, 11, 11, fill=col, outline="")
+            c.pack(side="left", padx=3)
+            if cmd:
+                c.bind("<Button-1>", lambda e, fn=cmd: fn())
+
+        # ── Body ──────────────────────────────────────────────────────────
+        body = tk.Frame(win, bg=BG)
+        body.pack(fill="both", expand=True)
+
+        W = 300
+
+        tk.Label(body, text=_t("settings_title"), bg=BG, fg=FG,
+                 font=("Inter", 15, "bold")).pack(anchor="w", padx=20, pady=(16, 14))
+
+        def sep(): tk.Frame(body, bg=BORDER, height=1).pack(fill="x")
+        def sec(t): tk.Label(body, text=t.upper(), bg=BG, fg=FG_DIM,
+                             font=("Inter", 8, "bold")).pack(anchor="w", padx=20, pady=(10, 6))
+
+        # Combobox style
         s = ttk.Style()
         s.theme_use("clam")
-        s.configure("P.TCombobox", fieldbackground=BG, background=BG,
-                    foreground=FG, selectbackground="#1e2028",
+        s.configure("P.TCombobox", fieldbackground=BG_BTN, background=BG_BTN,
+                    foreground=FG, selectbackground=BG_BTN_A,
                     selectforeground=FG, arrowcolor=ACCENT, bordercolor=BORDER,
                     insertcolor=FG)
         s.map("P.TCombobox",
-              fieldbackground=[("focus", BG), ("!focus", BG)],
+              fieldbackground=[("focus", BG_BTN), ("!focus", BG_BTN)],
               foreground=[("focus", FG), ("!focus", FG)],
-              background=[("active", BG), ("!active", BG)])
+              background=[("active", BG_BTN), ("!active", BG_BTN)])
+
+        # ── Verbindung ────────────────────────────────────────────────────
+        sep()
+        sec(_t("sec_connection"))
 
         ports = [p.device for p in serial.tools.list_ports.comports()] if SERIAL_OK else []
         if ports and not self._port_var.get():
             self._port_var.set(ports[0])
 
-        ttk.Combobox(conn_row, textvariable=self._port_var,
-                     values=ports, width=10, style="P.TCombobox").pack(side="left")
-
-        tk.Button(conn_row, text=_t("btn_search"),
-                  command=self._search_dongle_port,
-                  bg=BG_BTN, fg=FG_DIM, activebackground=BG_BTN_A, activeforeground=FG,
-                  bd=0, relief="flat", font=("Segoe UI", 10),
-                  padx=10, pady=6, cursor="hand2").pack(side="left", padx=(6, 0))
+        port_row = tk.Frame(body, bg=BG)
+        port_row.pack(fill="x", padx=20, pady=(0, 8))
+        RoundedBtn(port_row, _t("btn_search"), self._search_dongle_port,
+                   w=72, h=28, r=7, p_bg=BG,
+                   fill=BG_BTN, fg=FG_DIM, hover=BG_BTN_A, hover_fg=FG,
+                   border_col=BORDER, font_spec=("Inter", 10)
+                   ).pack(side="right")
+        ttk.Combobox(port_row, textvariable=self._port_var,
+                     values=ports, style="P.TCombobox").pack(side="left", fill="x",
+                                                              expand=True, padx=(0, 8))
 
         is_connected = self._ser is not None
-        tk.Button(conn_row,
-                  text="Disconnect" if is_connected else "Connect",
-                  command=self._toggle_serial,
-                  bg=BG_BTN, fg=RED if is_connected else ACCENT,
-                  activebackground=BG_BTN_A, activeforeground=FG,
-                  bd=0, relief="flat", font=("Segoe UI", 10),
-                  padx=12, pady=6, cursor="hand2").pack(side="left", padx=(10, 0))
+        RoundedBtn(body,
+                   "Disconnect" if is_connected else "Connect",
+                   self._toggle_serial,
+                   w=W, h=34, r=9, p_bg=BG,
+                   fill=RED if is_connected else ACCENT,
+                   fg="#ffffff",
+                   hover="#c0392b" if is_connected else "#5591ff",
+                   hover_fg="#ffffff",
+                   font_spec=("Inter", 11, "bold")
+                   ).pack(padx=20, pady=(0, 14))
 
-        # ── Dongle-Board ──
+        # ── Dongle-Board ──────────────────────────────────────────────────
         sep()
         sec(_t("sec_board"))
-        board_row = tk.Frame(win, bg=BG_TITLE)
-        board_row.pack(fill="x", padx=16, pady=(0, 14))
-        for val, label in (("nicenano", "Pro Micro nRF52840"), ("holyiot", "Holyiot nRF52840")):
-            tk.Radiobutton(board_row, text=label, variable=self._board_var, value=val,
-                           bg=BG_TITLE, fg=FG, selectcolor=BG,
-                           activebackground=BG_TITLE, activeforeground=ACCENT,
-                           font=("Segoe UI", 10),
-                           command=self._on_board_change).pack(side="left", padx=(0, 14))
+        board_frame = tk.Frame(body, bg=BG)
+        board_frame.pack(fill="x", padx=20, pady=(0, 12))
+        for val, label in (("nicenano", "Pro Micro nRF52840"),
+                           ("holyiot",  "Holyiot nRF52840")):
+            tk.Radiobutton(board_frame, text=label, variable=self._board_var, value=val,
+                           bg=BG, fg=FG, selectcolor=BG_BTN,
+                           activebackground=BG, activeforeground=ACCENT,
+                           font=("Inter", 10),
+                           command=self._on_board_change).pack(anchor="w", pady=2)
 
-        # ── Dongle Befehle ──
+        # ── Dongle Befehle ────────────────────────────────────────────────
         sep()
         sec(_t("sec_commands"))
 
-        def _mkc(parent, text, cmd, color=FG):
-            tk.Button(parent, text=text, command=lambda: self._send_cmd(cmd),
-                      bg=BG_BTN, fg=color, activebackground=BG_BTN_A,
-                      activeforeground=FG, bd=0, relief="flat",
-                      font=("Segoe UI", 10), padx=12, pady=7,
-                      cursor="hand2").pack(side="left", padx=(0, 8))
+        BW = (W - 8) // 2
 
-        r1 = tk.Frame(win, bg=BG_TITLE)
-        r1.pack(fill="x", padx=16, pady=(0, 6))
-        _mkc(r1, "Pairing", "pair", ACCENT)
-        _mkc(r1, "List",    "list")
-        _mkc(r1, "Uptime",  "uptime")
+        for pairs in [
+            [("Pairing", "pair",   ACCENT), ("List",   "list",   FG)],
+            [("Uptime",  "uptime", FG),     ("Remove", "remove", YELLOW)],
+            [("Clear",   "clear",  RED),    ("Reboot", "reboot", FG_DIM)],
+        ]:
+            row = tk.Frame(body, bg=BG)
+            row.pack(fill="x", padx=20, pady=(0, 6))
+            for text, cmd, color in pairs:
+                RoundedBtn(row, text, lambda c=cmd: self._send_cmd(c),
+                           w=BW, h=32, r=7, p_bg=BG,
+                           fill=BG_BTN, fg=color, hover=BG_BTN_A, hover_fg=FG,
+                           border_col=BORDER, font_spec=("Inter", 10, "bold")
+                           ).pack(side="left", padx=(0, 8))
 
-        r2 = tk.Frame(win, bg=BG_TITLE)
-        r2.pack(fill="x", padx=16, pady=(0, 14))
-        _mkc(r2, "Remove", "remove", YELLOW)
-        _mkc(r2, "Clear",  "clear",  RED)
-        _mkc(r2, "Reboot", "reboot", FG_DIM)
-        _mkc(r2, "DFU",    "dfu",    FG_DIM)
+        RoundedBtn(body, "DFU", lambda: self._send_cmd("dfu"),
+                   w=W, h=32, r=7, p_bg=BG,
+                   fill=BG_BTN, fg=FG_DIM, hover=BG_BTN_A, hover_fg=FG,
+                   border_col=BORDER, font_spec=("Inter", 10, "bold")
+                   ).pack(padx=20, pady=(0, 14))
 
-        # ── Versionen ──
+        # ── Versionen ─────────────────────────────────────────────────────
         sep()
         sec(_t("sec_versions"))
-        ver_frame = tk.Frame(win, bg=BG_TITLE)
-        ver_frame.pack(fill="x", padx=16, pady=(0, 18))
+        ver_frame = tk.Frame(body, bg=BG)
+        ver_frame.pack(fill="x", padx=20, pady=(0, 14))
         for label, var, color in [
             ("Server",  tk.StringVar(value=SERVER_VERSION), ACCENT),
             ("Dongle",  self._dongle_ver_var,               FG),
             ("Headpat", self._hp_ver_var,                   FG),
         ]:
-            r = tk.Frame(ver_frame, bg=BG_TITLE)
-            r.pack(fill="x", pady=5)
-            tk.Label(r, text=label, bg=BG_TITLE, fg=FG_DIM,
-                     font=("Segoe UI", 10)).pack(side="left")
-            tk.Label(r, textvariable=var, bg=BG_TITLE, fg=color,
-                     font=("Segoe UI", 10, "bold")).pack(side="right")
+            r = tk.Frame(ver_frame, bg=BG)
+            r.pack(fill="x", pady=4)
+            tk.Label(r, text=label, bg=BG, fg=FG_DIM,
+                     font=("Inter", 10)).pack(side="left")
+            tk.Label(r, textvariable=var, bg=BG, fg=color,
+                     font=("Inter", 10, "bold")).pack(side="right")
 
-        # ── Sprache ──
+        # ── Sprache + Autostart ───────────────────────────────────────────
         sep()
-        sec(_t("sec_language"))
-        lang_row = tk.Frame(win, bg=BG_TITLE)
-        lang_row.pack(fill="x", padx=16, pady=(0, 4))
-        lang_combo = ttk.Combobox(lang_row, textvariable=self._lang_var,
-                                  values=["de", "en"], width=6,
+        bot_row = tk.Frame(body, bg=BG)
+        bot_row.pack(fill="x", padx=20, pady=(10, 14))
+
+        lang_frame = tk.Frame(bot_row, bg=BG)
+        lang_frame.pack(side="left")
+        tk.Label(lang_frame, text=_t("sec_language").upper(), bg=BG, fg=FG_DIM,
+                 font=("Inter", 8, "bold")).pack(anchor="w")
+        lang_combo = ttk.Combobox(lang_frame, textvariable=self._lang_var,
+                                  values=["de", "en"], width=7,
                                   style="P.TCombobox", state="readonly")
-        lang_combo.pack(side="left")
+        lang_combo.pack(anchor="w", pady=(4, 0))
 
         def _on_lang_change(*_):
             global _LANG
@@ -1806,28 +1853,38 @@ class App(tk.Tk):
             self._save_config()
             win.destroy()
             self.after(30, self._open_settings)
-
         self._lang_var.trace_add("write", _on_lang_change)
 
-        # ── Autostart ──
-        sep()
-        autostart_row = tk.Frame(win, bg=BG_TITLE)
-        autostart_row.pack(fill="x", padx=16, pady=(10, 14))
-        tk.Label(autostart_row, text="Autostart", bg=BG_TITLE, fg=FG,
-                 font=("Segoe UI", 10)).pack(side="left")
+        as_frame = tk.Frame(bot_row, bg=BG)
+        as_frame.pack(side="right")
+        tk.Label(as_frame, text="AUTOSTART", bg=BG, fg=FG_DIM,
+                 font=("Inter", 8, "bold")).pack(anchor="e")
 
         _as_state = [self._autostart_enabled()]
-        _as_dot = self._dot(autostart_row, GREEN if _as_state[0] else FG_DIM)
-        _as_dot.pack(side="right")
-        _as_dot.config(cursor="hand2")
+        TW, TH = 38, 22
+        toggle_cvs = tk.Canvas(as_frame, width=TW, height=TH, bg=BG,
+                               highlightthickness=0, cursor="hand2")
+        toggle_cvs.pack(anchor="e", pady=(6, 0))
+
+        def _draw_toggle(on):
+            toggle_cvs.delete("all")
+            col = ACCENT if on else BG_BTN
+            r = TH // 2
+            toggle_cvs.create_oval(0, 0, TH, TH, fill=col, outline="")
+            toggle_cvs.create_oval(TW - TH, 0, TW, TH, fill=col, outline="")
+            toggle_cvs.create_rectangle(r, 0, TW - r, TH, fill=col, outline="")
+            tx = TW - TH + 2 if on else 2
+            toggle_cvs.create_oval(tx, 2, tx + TH - 4, TH - 2,
+                                   fill="#ffffff", outline="")
+        _draw_toggle(_as_state[0])
 
         def _toggle_autostart(_=None):
             _as_state[0] = not _as_state[0]
             self._set_autostart(_as_state[0])
-            self._set_dot(_as_dot, GREEN if _as_state[0] else FG_DIM)
+            _draw_toggle(_as_state[0])
+        toggle_cvs.bind("<Button-1>", _toggle_autostart)
 
-        _as_dot.bind("<Button-1>", _toggle_autostart)
-
+        # ── Updates ───────────────────────────────────────────────────────
         sep()
         def _check_now():
             def _run():
@@ -1835,11 +1892,20 @@ class App(tk.Tk):
                 self.after(0, self._open_update_dialog)
             threading.Thread(target=_run, daemon=True).start()
             self._log("Suche nach Updates…", "info")
-        tk.Button(win, text=_t("btn_check_updates"),
-                  command=_check_now,
-                  bg=BG_BTN, fg=FG, activebackground=BG_BTN_A,
-                  bd=0, relief="flat", font=("Segoe UI", 10),
-                  padx=12, pady=7, cursor="hand2").pack(padx=16, pady=14, fill="x")
+        RoundedBtn(body, _t("btn_check_updates"), _check_now,
+                   w=W, h=34, r=9, p_bg=BG,
+                   fill=ACCENT, fg="#ffffff",
+                   hover="#5591ff", hover_fg="#ffffff",
+                   font_spec=("Inter", 11, "bold")
+                   ).pack(padx=20, pady=14)
+
+        # ── Positionierung ────────────────────────────────────────────────
+        win.update_idletasks()
+        self.update_idletasks()
+        x = self.winfo_x() + self.winfo_width() + 8
+        y = self.winfo_y()
+        win.geometry(f"+{x}+{y}")
+        win.deiconify()
 
     # ── Restart ───────────────────────────────────────────────────────────────
     def _restart_app(self):
