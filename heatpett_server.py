@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.3.7"
+SERVER_VERSION  = "v3.3.8"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1323,17 +1323,23 @@ class App(tk.Tk):
             w.bind("<ButtonPress-1>", self._drag_start)
             w.bind("<B1-Motion>",     self._drag_move)
 
-        if self._logo_img:
-            ico_lbl = tk.Label(tb, image=self._logo_img, bg=BG_TITLE)
-            ico_lbl.pack(side="left", padx=(12, 6), pady=10)
-            ico_lbl.bind("<ButtonPress-1>", self._drag_start)
-            ico_lbl.bind("<B1-Motion>",     self._drag_move)
+        dot = tk.Canvas(tb, width=9, height=9, bg=BG_TITLE, highlightthickness=0)
+        dot.create_oval(0, 0, 8, 8, fill=ACCENT, outline="")
+        dot.pack(side="left", padx=(14, 7), pady=18)
+        dot.bind("<ButtonPress-1>", self._drag_start)
+        dot.bind("<B1-Motion>",     self._drag_move)
 
-        name_lbl = tk.Label(tb, text=f"Headpat Server {SERVER_VERSION}",
-                            bg=BG_TITLE, fg=FG, font=("Segoe UI", 11))
+        name_lbl = tk.Label(tb, text="Headpat Server",
+                            bg=BG_TITLE, fg=FG, font=("Segoe UI", 11, "bold"))
         name_lbl.pack(side="left", pady=10)
         name_lbl.bind("<ButtonPress-1>", self._drag_start)
         name_lbl.bind("<B1-Motion>",     self._drag_move)
+
+        ver_lbl = tk.Label(tb, text=SERVER_VERSION,
+                           bg=BG_TITLE, fg=FG_DIM, font=("Segoe UI", 10))
+        ver_lbl.pack(side="left", padx=(5, 0), pady=10)
+        ver_lbl.bind("<ButtonPress-1>", self._drag_start)
+        ver_lbl.bind("<B1-Motion>",     self._drag_move)
 
         RoundedBtn(tb, "✕", self._on_close,
                    w=28, h=28, r=7, font_size=13,
