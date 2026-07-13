@@ -58,13 +58,13 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.5.12"
+SERVER_VERSION  = "v3.6.0"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
 SERVER_REPO     = "Headpat-Server"
 NRF52_LABELS    = {"NRF52BOOT", "NICENANO"}
-UPDATE_INTERVAL = 1800
+UPDATE_INTERVAL = 300
 
 _BASE     = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 ICON_PATH = os.path.join(_BASE, "icon.png")
