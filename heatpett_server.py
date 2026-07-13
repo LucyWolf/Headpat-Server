@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.4.5"
+SERVER_VERSION  = "v3.4.6"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -573,6 +573,13 @@ class App(tk.Tk):
         self._sync_img_dim   = None
         self._sync_img_on    = None
         self._pending_flash  = None
+
+        self._int_var        = tk.DoubleVar(value=50)
+        self._int_pct_var    = tk.StringVar(value="50%")
+        self._bat_text       = "🔋 ?%"
+        self._bat_fg         = FG_DIM
+        self._d_font_labels  = tk.IntVar(value=self._cfg.get("d_font_labels", 11))
+        self._d_font_pct     = tk.IntVar(value=self._cfg.get("d_font_pct",    11))
 
         self._load_icon()
         self._build()
@@ -1130,15 +1137,17 @@ class App(tk.Tk):
 
     def _save_config(self):
         cfg = {
-            "port":         self._port_var.get(),
-            "intensity":    self._int_var.get(),
-            "osc_verbose":  self._osc_verbose,
-            "auto_connect": self._ser is not None,
-            "win_x":        self.winfo_x(),
-            "win_y":        self.winfo_y(),
-            "dongle_board": self._board_var.get(),
-            "lang":         self._lang_var.get(),
-            "vib_mode":     self._vib_mode,
+            "port":          self._port_var.get(),
+            "intensity":     self._int_var.get(),
+            "osc_verbose":   self._osc_verbose,
+            "auto_connect":  self._ser is not None,
+            "win_x":         self.winfo_x(),
+            "win_y":         self.winfo_y(),
+            "dongle_board":  self._board_var.get(),
+            "lang":          self._lang_var.get(),
+            "vib_mode":      self._vib_mode,
+            "d_font_labels": self._d_font_labels.get(),
+            "d_font_pct":    self._d_font_pct.get(),
         }
         try:
             os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -1388,39 +1397,43 @@ class App(tk.Tk):
         self._log_btn.pack(side="right", padx=2, pady=8)
 
 
-        # ── Main card ─────────────────────────────────────────────────────────
+        self._build_main_card()
+
+    def _build_main_card(self):
+        fl = self._d_font_labels.get()
+        fp = self._d_font_pct.get()
+
         card = tk.Frame(self, bg=BG)
         card.pack(fill="both", expand=True)
+        self._main_card = card
 
         # ── Status row ────────────────────────────────────────────────────────
         status = tk.Frame(card, bg=BG)
         status.pack(fill="x", padx=20, pady=(14, 10))
 
-        self._hp_dot = self._dot(status, RED)
+        self._hp_dot = self._dot(status, GREEN if self._ble_connected else RED)
         self._hp_dot.pack(side="left")
         tk.Label(status, text="Headpat", bg=BG, fg=FG,
-                 font=("Inter", 11, "bold")).pack(side="left", padx=(6, 0))
+                 font=("Inter", fl, "bold")).pack(side="left", padx=(6, 0))
 
-        self._vrc_dot = self._dot(status, RED)
+        self._vrc_dot = self._dot(status, GREEN if self._vrc_connected else RED)
         self._vrc_dot.pack(side="left", padx=(18, 0))
         tk.Label(status, text="OSC", bg=BG, fg=FG,
-                 font=("Inter", 11, "bold")).pack(side="left", padx=(6, 0))
+                 font=("Inter", fl, "bold")).pack(side="left", padx=(6, 0))
 
-        self._bat_lbl = tk.Label(status, text="🔋 ?%", bg=BG, fg=FG_DIM,
-                                 font=("JetBrains Mono", 11))
+        self._bat_lbl = tk.Label(status, text=self._bat_text, bg=BG,
+                                 fg=self._bat_fg, font=("JetBrains Mono", fp))
         self._bat_lbl.pack(side="right")
 
         # ── Intensity label + % ───────────────────────────────────────────────
         int_label_row = tk.Frame(card, bg=BG)
         int_label_row.pack(fill="x", padx=20, pady=(10, 2))
         tk.Label(int_label_row, text="Intensity", bg=BG, fg=FG,
-                 font=("Inter", 11, "bold")).pack(side="left")
-        self._int_var     = tk.DoubleVar(value=50)
-        self._int_pct_var = tk.StringVar(value="50%")
+                 font=("Inter", fl, "bold")).pack(side="left")
         tk.Label(int_label_row, textvariable=self._int_pct_var, bg=BG, fg=ACCENT,
-                 font=("JetBrains Mono", 11, "bold")).pack(side="right")
+                 font=("JetBrains Mono", fp, "bold")).pack(side="right")
 
-        # ── Slider (eigene Zeile, full-width) ─────────────────────────────────
+        # ── Slider ────────────────────────────────────────────────────────────
         FancySlider(card, variable=self._int_var, from_=0, to=100,
                     command=self._on_intensity_change,
                     track_h=4, thumb_r=6, p_bg=BG
@@ -1430,7 +1443,7 @@ class App(tk.Tk):
         mode_row = tk.Frame(card, bg=BG)
         mode_row.pack(fill="x", padx=20, pady=(8, 8))
         tk.Label(mode_row, text="Modus", bg=BG, fg=FG,
-                 font=("Inter", 11, "bold")).pack(side="left")
+                 font=("Inter", fl, "bold")).pack(side="left")
 
         def _select_mode(m):
             self._vib_mode = m
@@ -1445,12 +1458,16 @@ class App(tk.Tk):
         # ── Test row ──────────────────────────────────────────────────────────
         test_row = tk.Frame(card, bg=BG)
         test_row.pack(fill="x", padx=20, pady=(8, 14))
-
         tk.Label(test_row, text="Test", bg=BG, fg=FG,
-                 font=("Inter", 11, "bold")).pack(side="left")
-
+                 font=("Inter", fl, "bold")).pack(side="left")
         self._mkbtn(test_row, "R", self._pat_right).pack(side="right")
         self._mkbtn(test_row, "L", self._pat_left).pack(side="right", padx=(0, 10))
+
+    def _rebuild_main_card(self):
+        if hasattr(self, "_main_card") and self._main_card.winfo_exists():
+            self._main_card.destroy()
+        self._build_main_card()
+        self._save_config()
 
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -1466,12 +1483,13 @@ class App(tk.Tk):
         self._debounce_save()
 
     def _mkbtn(self, parent, text, cmd):
+        fl = self._d_font_labels.get()
         return RoundedBtn(parent, text, cmd,
                           w=50, h=36, r=8, p_bg=BG,
                           fill=BG_BTN, fg=FG,
                           hover=BG_BTN, hover_fg=FG,
                           press=ACCENT, border_col=BORDER,
-                          font_spec=("Inter", 11, "bold"))
+                          font_spec=("Inter", fl, "bold"))
 
     # ── Drag ──────────────────────────────────────────────────────────────────
     def _drag_start(self, e):
@@ -1759,6 +1777,47 @@ class App(tk.Tk):
 
         _as_dot.bind("<Button-1>", _toggle_autostart)
 
+        # ── Design (Experimentell) ──
+        sep()
+        sec("Design (Experimentell)")
+        d_frame = tk.Frame(win, bg=BG_TITLE)
+        d_frame.pack(fill="x", padx=16, pady=(0, 12))
+
+        _rt = [None]
+        def _sched_rebuild(*_):
+            if _rt[0]:
+                win.after_cancel(_rt[0])
+            _rt[0] = win.after(350, self._rebuild_main_card)
+
+        def _add_drow(label, var, lo, hi):
+            row = tk.Frame(d_frame, bg=BG_TITLE)
+            row.pack(fill="x", pady=2)
+            tk.Label(row, text=label, bg=BG_TITLE, fg=FG_DIM,
+                     font=("Segoe UI", 9), width=18, anchor="w").pack(side="left")
+            tk.Label(row, textvariable=var, bg=BG_TITLE, fg=ACCENT,
+                     font=("JetBrains Mono", 9), width=3, anchor="e").pack(side="right")
+            tk.Scale(row, variable=var, from_=lo, to=hi,
+                     orient="horizontal", showvalue=False,
+                     bg=BG_TITLE, fg=FG, highlightthickness=0,
+                     troughcolor=BG, activebackground=ACCENT,
+                     sliderrelief="flat", sliderlength=14, bd=0,
+                     command=_sched_rebuild).pack(side="right", fill="x",
+                                                  expand=True, padx=(0, 6))
+
+        _add_drow("Schrift Labels",    self._d_font_labels, 8, 18)
+        _add_drow("Schrift Monospace", self._d_font_pct,    8, 18)
+
+        def _reset_design():
+            self._d_font_labels.set(11)
+            self._d_font_pct.set(11)
+            self._rebuild_main_card()
+
+        tk.Button(d_frame, text="Zurücksetzen",
+                  command=_reset_design,
+                  bg=BG_BTN, fg=FG_DIM, activebackground=BG_BTN_A,
+                  bd=0, relief="flat", font=("Segoe UI", 9),
+                  padx=8, pady=4, cursor="hand2").pack(anchor="e", pady=(4, 0))
+
         sep()
         def _check_now():
             def _run():
@@ -1907,7 +1966,8 @@ class App(tk.Tk):
             except: pass
         self._ble_connected = False
         self._set_dot(self._hp_dot, RED)
-        self._bat_lbl.config(text="🔋 ?%", fg=FG_DIM)
+        self._bat_text = "🔋 ?%"; self._bat_fg = FG_DIM
+        self._bat_lbl.config(text=self._bat_text, fg=self._bat_fg)
         self._log("Serial getrennt", "warn")
         self._save_config()
 
@@ -2080,12 +2140,14 @@ class App(tk.Tk):
                 if tag == "bat":
                     pct = int(val)
                     col = GREEN if pct >= 50 else YELLOW if pct >= 20 else RED
-                    self._bat_lbl.config(text=f"🔋 {pct}%", fg=col)
+                    self._bat_text = f"🔋 {pct}%"; self._bat_fg = col
+                    self._bat_lbl.config(text=self._bat_text, fg=self._bat_fg)
                 elif tag == "hp_ble":
                     self._ble_connected = val
                     self._set_dot(self._hp_dot, GREEN if val else RED)
                     if not val:
-                        self._bat_lbl.config(text="🔋 ?%", fg=FG_DIM)
+                        self._bat_text = "🔋 ?%"; self._bat_fg = FG_DIM
+                        self._bat_lbl.config(text=self._bat_text, fg=self._bat_fg)
                 elif tag == "vrc":
                     self._vrc_connected = val
                     self._set_dot(self._vrc_dot, GREEN if val else RED)
