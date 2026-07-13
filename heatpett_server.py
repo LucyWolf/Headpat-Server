@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.4.6"
+SERVER_VERSION  = "v3.4.7"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -578,8 +578,6 @@ class App(tk.Tk):
         self._int_pct_var    = tk.StringVar(value="50%")
         self._bat_text       = "🔋 ?%"
         self._bat_fg         = FG_DIM
-        self._d_font_labels  = tk.IntVar(value=self._cfg.get("d_font_labels", 11))
-        self._d_font_pct     = tk.IntVar(value=self._cfg.get("d_font_pct",    11))
 
         self._load_icon()
         self._build()
@@ -1146,8 +1144,6 @@ class App(tk.Tk):
             "dongle_board":  self._board_var.get(),
             "lang":          self._lang_var.get(),
             "vib_mode":      self._vib_mode,
-            "d_font_labels": self._d_font_labels.get(),
-            "d_font_pct":    self._d_font_pct.get(),
         }
         try:
             os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -1400,8 +1396,8 @@ class App(tk.Tk):
         self._build_main_card()
 
     def _build_main_card(self):
-        fl = self._d_font_labels.get()
-        fp = self._d_font_pct.get()
+        fl = 11
+        fp = 12
 
         card = tk.Frame(self, bg=BG)
         card.pack(fill="both", expand=True)
@@ -1463,11 +1459,6 @@ class App(tk.Tk):
         self._mkbtn(test_row, "R", self._pat_right).pack(side="right")
         self._mkbtn(test_row, "L", self._pat_left).pack(side="right", padx=(0, 10))
 
-    def _rebuild_main_card(self):
-        if hasattr(self, "_main_card") and self._main_card.winfo_exists():
-            self._main_card.destroy()
-        self._build_main_card()
-        self._save_config()
 
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -1483,13 +1474,12 @@ class App(tk.Tk):
         self._debounce_save()
 
     def _mkbtn(self, parent, text, cmd):
-        fl = self._d_font_labels.get()
         return RoundedBtn(parent, text, cmd,
                           w=50, h=36, r=8, p_bg=BG,
                           fill=BG_BTN, fg=FG,
                           hover=BG_BTN, hover_fg=FG,
                           press=ACCENT, border_col=BORDER,
-                          font_spec=("Inter", fl, "bold"))
+                          font_spec=("Inter", 11, "bold"))
 
     # ── Drag ──────────────────────────────────────────────────────────────────
     def _drag_start(self, e):
@@ -1776,47 +1766,6 @@ class App(tk.Tk):
             self._set_dot(_as_dot, GREEN if _as_state[0] else FG_DIM)
 
         _as_dot.bind("<Button-1>", _toggle_autostart)
-
-        # ── Design (Experimentell) ──
-        sep()
-        sec("Design (Experimentell)")
-        d_frame = tk.Frame(win, bg=BG_TITLE)
-        d_frame.pack(fill="x", padx=16, pady=(0, 12))
-
-        _rt = [None]
-        def _sched_rebuild(*_):
-            if _rt[0]:
-                win.after_cancel(_rt[0])
-            _rt[0] = win.after(350, self._rebuild_main_card)
-
-        def _add_drow(label, var, lo, hi):
-            row = tk.Frame(d_frame, bg=BG_TITLE)
-            row.pack(fill="x", pady=2)
-            tk.Label(row, text=label, bg=BG_TITLE, fg=FG_DIM,
-                     font=("Segoe UI", 9), width=18, anchor="w").pack(side="left")
-            tk.Label(row, textvariable=var, bg=BG_TITLE, fg=ACCENT,
-                     font=("JetBrains Mono", 9), width=3, anchor="e").pack(side="right")
-            tk.Scale(row, variable=var, from_=lo, to=hi,
-                     orient="horizontal", showvalue=False,
-                     bg=BG_TITLE, fg=FG, highlightthickness=0,
-                     troughcolor=BG, activebackground=ACCENT,
-                     sliderrelief="flat", sliderlength=14, bd=0,
-                     command=_sched_rebuild).pack(side="right", fill="x",
-                                                  expand=True, padx=(0, 6))
-
-        _add_drow("Schrift Labels",    self._d_font_labels, 8, 18)
-        _add_drow("Schrift Monospace", self._d_font_pct,    8, 18)
-
-        def _reset_design():
-            self._d_font_labels.set(11)
-            self._d_font_pct.set(11)
-            self._rebuild_main_card()
-
-        tk.Button(d_frame, text="Zurücksetzen",
-                  command=_reset_design,
-                  bg=BG_BTN, fg=FG_DIM, activebackground=BG_BTN_A,
-                  bd=0, relief="flat", font=("Segoe UI", 9),
-                  padx=8, pady=4, cursor="hand2").pack(anchor="e", pady=(4, 0))
 
         sep()
         def _check_now():
