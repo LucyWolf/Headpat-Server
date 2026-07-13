@@ -93,6 +93,11 @@ TRANSLATIONS = {
         "sec_commands": "Dongle Befehle",
         "sec_versions": "Versionen",
         "sec_language": "Sprache",
+        "sec_motor_channels": "Motor-Kanäle",
+        "btn_add_channel": "+ Kanal hinzufügen",
+        "ch_both": "Beide",
+        "ch_left": "Links",
+        "ch_right": "Rechts",
         "btn_search": "Suchen",
         "btn_check_updates": "Jetzt auf Updates prüfen",
         "btn_refresh": "Aktualisieren",
@@ -114,6 +119,11 @@ TRANSLATIONS = {
         "sec_commands": "Dongle Commands",
         "sec_versions": "Versions",
         "sec_language": "Language",
+        "sec_motor_channels": "Motor Channels",
+        "btn_add_channel": "+ Add Channel",
+        "ch_both": "Both",
+        "ch_left": "Left",
+        "ch_right": "Right",
         "btn_search": "Search",
         "btn_check_updates": "Check for Updates Now",
         "btn_refresh": "Refresh",
@@ -558,6 +568,12 @@ class App(tk.Tk):
         self._settings_win   = None
         self._osc_verbose    = bool(self._cfg.get("osc_verbose", False))
         self._vib_mode       = int(self._cfg.get("vib_mode", 0))  # 0=proximity 1=trigger
+        self._motor_channels = self._cfg.get("motors", [
+            {"osc_key": "headpat",  "ch": "both"},
+            {"osc_key": "patstrap", "ch": "both"},
+            {"osc_key": "left",     "ch": "left"},
+            {"osc_key": "right",    "ch": "right"},
+        ])
         self._console_win    = None
         self._console_text   = None
         self._log_buf        = collections.deque(maxlen=500)
@@ -1217,6 +1233,7 @@ class App(tk.Tk):
             "dongle_board":  self._board_var.get(),
             "lang":          self._lang_var.get(),
             "vib_mode":      self._vib_mode,
+            "motors":        self._motor_channels,
         }
         try:
             os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -1825,6 +1842,75 @@ class App(tk.Tk):
                    border_col=BORDER, font_spec=("Inter", 10, "bold")
                    ).pack(padx=20, pady=(0, 14))
 
+        # ── Motor-Kanäle ──────────────────────────────────────────────────
+        sep()
+        sec(_t("sec_motor_channels"))
+
+        CH_VALS   = ("both", "left", "right")
+        CH_LABELS = (_t("ch_both"), _t("ch_left"), _t("ch_right"))
+
+        motor_frame = tk.Frame(body, bg=BG)
+        motor_frame.pack(fill="x", padx=20, pady=(0, 6))
+
+        def _rebuild_channels():
+            for w in motor_frame.winfo_children():
+                w.destroy()
+            for i, mc in enumerate(self._motor_channels):
+                row = tk.Frame(motor_frame, bg=BG)
+                row.pack(fill="x", pady=(0, 5))
+
+                # OSC keyword entry
+                kw_var = tk.StringVar(value=mc["osc_key"])
+                def _kw_write(*_, idx=i, var=kw_var):
+                    self._motor_channels[idx]["osc_key"] = var.get()
+                    self._debounce_save()
+                kw_var.trace_add("write", _kw_write)
+                tk.Entry(row, textvariable=kw_var,
+                         bg=BG_BTN, fg=FG, insertbackground=FG,
+                         relief="flat", font=("Inter", 10), width=12,
+                         highlightthickness=1, highlightbackground=BORDER,
+                         highlightcolor=ACCENT
+                         ).pack(side="left")
+
+                # Channel combobox
+                cur_label = CH_LABELS[CH_VALS.index(mc["ch"])] if mc["ch"] in CH_VALS else CH_LABELS[0]
+                ch_var = tk.StringVar(value=cur_label)
+                def _ch_write(*_, idx=i, var=ch_var):
+                    lbl = var.get()
+                    if lbl in CH_LABELS:
+                        self._motor_channels[idx]["ch"] = CH_VALS[CH_LABELS.index(lbl)]
+                        self._debounce_save()
+                ch_var.trace_add("write", _ch_write)
+                ch_box = ttk.Combobox(row, textvariable=ch_var,
+                                      values=list(CH_LABELS), width=7,
+                                      style="P.TCombobox", state="readonly")
+                ch_box.pack(side="left", padx=(6, 0))
+
+                # Remove button
+                def _remove(idx=i):
+                    if len(self._motor_channels) > 1:
+                        self._motor_channels.pop(idx)
+                        self._save_config()
+                        _rebuild_channels()
+                RoundedBtn(row, "−", _remove,
+                           w=28, h=28, r=7, p_bg=BG,
+                           fill=BG_BTN, fg=RED, hover="#2a1515", hover_fg=RED,
+                           border_col=BORDER, font_spec=("Inter", 13, "bold")
+                           ).pack(side="right")
+
+        _rebuild_channels()
+
+        def _add_channel():
+            self._motor_channels.append({"osc_key": "neu", "ch": "both"})
+            self._save_config()
+            _rebuild_channels()
+
+        RoundedBtn(body, _t("btn_add_channel"), _add_channel,
+                   w=W, h=32, r=7, p_bg=BG,
+                   fill=BG_BTN, fg=ACCENT, hover=BG_BTN_A, hover_fg=ACCENT,
+                   border_col=BORDER, font_spec=("Inter", 10, "bold")
+                   ).pack(padx=20, pady=(0, 14))
+
         # ── Versionen ─────────────────────────────────────────────────────
         sep()
         sec(_t("sec_versions"))
@@ -2159,7 +2245,7 @@ class App(tk.Tk):
         is_avatar = address.startswith("/avatar/parameters/")
         if is_avatar:
             pname = address.split("/")[-1].lower()
-            is_hp = "headpat" in pname or "patstrap" in pname
+            is_hp = any(c["osc_key"].lower() in pname for c in self._motor_channels)
             status = "PASS" if is_hp else "skip"
         else:
             status = "----"
@@ -2186,7 +2272,8 @@ class App(tk.Tk):
             return
 
         param = parts[3].lower()
-        if "headpat" not in param and "patstrap" not in param:
+        matched = next((c for c in self._motor_channels if c["osc_key"].lower() in param), None)
+        if matched is None:
             return
 
         val = float(args[0]) if args else 0.0
@@ -2195,13 +2282,14 @@ class App(tk.Tk):
             self._send_motor(0, 0)
             return
         if self._vib_mode == 1:
-            nibble = max(1, int(15 * self._intensity))  # Trigger: volle Stärke für aktuelle Intensity
+            nibble = max(1, int(15 * self._intensity))
         else:
-            nibble = max(0, min(15, int(val * 15 * self._intensity)))  # Proximity: proportional
+            nibble = max(0, min(15, int(val * 15 * self._intensity)))
         self._last_motor_nz = time.time()
-        if "left"  in param: self._send_motor(nibble, 0)
-        elif "right" in param: self._send_motor(0, nibble)
-        else:                   self._send_motor(nibble, nibble)
+        ch = matched["ch"]
+        if   ch == "left":  self._send_motor(nibble, 0)
+        elif ch == "right": self._send_motor(0, nibble)
+        else:               self._send_motor(nibble, nibble)
 
     # ── Tick ─────────────────────────────────────────────────────────────────
     def _tick(self):
