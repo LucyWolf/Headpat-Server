@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.4.3"
+SERVER_VERSION  = "v3.4.4"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -318,7 +318,7 @@ class SegmentedControl(tk.Canvas):
             cx = self._seg_x(i) + self._seg_w // 2
             cy = self._pad + self._h // 2
             self.create_text(cx, cy, text=label, fill=fg_c,
-                             font=("Inter", 13, bold))
+                             font=("Inter", 11, bold))
 
     def _draw_poly(self):
         w, h, r = self._tw, self._th, self._r_cont
@@ -346,7 +346,7 @@ class SegmentedControl(tk.Canvas):
             cx = x1 + self._seg_w // 2
             cy = y1 + self._h // 2
             self.create_text(cx, cy, text=label, fill=fg_c,
-                             font=("Inter", 13, bold))
+                             font=("Inter", 11, bold))
 
     def _hit(self, x):
         for i in range(len(self._labels)):
@@ -1331,13 +1331,13 @@ class App(tk.Tk):
         dot.bind("<B1-Motion>",     self._drag_move)
 
         name_lbl = tk.Label(tb, text="Headpat Server",
-                            bg=BG_TITLE, fg=FG, font=("Inter", 14, "bold"))
+                            bg=BG_TITLE, fg=FG, font=("Inter", 13, "bold"))
         name_lbl.pack(side="left", pady=10)
         name_lbl.bind("<ButtonPress-1>", self._drag_start)
         name_lbl.bind("<B1-Motion>",     self._drag_move)
 
         ver_lbl = tk.Label(tb, text=SERVER_VERSION,
-                           bg=BG_TITLE, fg=FG_DIM, font=("Inter", 12))
+                           bg=BG_TITLE, fg=FG_DIM, font=("Inter", 11))
         ver_lbl.pack(side="left", padx=(5, 0), pady=10)
         ver_lbl.bind("<ButtonPress-1>", self._drag_start)
         ver_lbl.bind("<B1-Motion>",     self._drag_move)
@@ -1394,43 +1394,43 @@ class App(tk.Tk):
 
         # ── Status row ────────────────────────────────────────────────────────
         status = tk.Frame(card, bg=BG)
-        status.pack(fill="x", padx=20, pady=(22, 16))
+        status.pack(fill="x", padx=20, pady=(14, 10))
 
         self._hp_dot = self._dot(status, RED)
         self._hp_dot.pack(side="left")
         tk.Label(status, text="Headpat", bg=BG, fg=FG,
-                 font=("Inter", 14, "bold")).pack(side="left", padx=(6, 0))
+                 font=("Inter", 11, "bold")).pack(side="left", padx=(6, 0))
 
         self._vrc_dot = self._dot(status, RED)
         self._vrc_dot.pack(side="left", padx=(18, 0))
         tk.Label(status, text="OSC", bg=BG, fg=FG,
-                 font=("Inter", 14, "bold")).pack(side="left", padx=(6, 0))
+                 font=("Inter", 11, "bold")).pack(side="left", padx=(6, 0))
 
         self._bat_lbl = tk.Label(status, text="🔋 ?%", bg=BG, fg=FG_DIM,
-                                 font=("JetBrains Mono", 13))
+                                 font=("JetBrains Mono", 11))
         self._bat_lbl.pack(side="right")
 
         # ── Intensity label + % ───────────────────────────────────────────────
         int_label_row = tk.Frame(card, bg=BG)
-        int_label_row.pack(fill="x", padx=20, pady=(18, 2))
+        int_label_row.pack(fill="x", padx=20, pady=(12, 2))
         tk.Label(int_label_row, text="Intensity", bg=BG, fg=FG,
-                 font=("Inter", 13, "bold")).pack(side="left")
+                 font=("Inter", 11, "bold")).pack(side="left")
         self._int_var     = tk.DoubleVar(value=50)
         self._int_pct_var = tk.StringVar(value="50%")
         tk.Label(int_label_row, textvariable=self._int_pct_var, bg=BG, fg=ACCENT,
-                 font=("JetBrains Mono", 13, "bold")).pack(side="right")
+                 font=("JetBrains Mono", 11, "bold")).pack(side="right")
 
         # ── Slider (eigene Zeile, full-width) ─────────────────────────────────
         FancySlider(card, variable=self._int_var, from_=0, to=100,
                     command=self._on_intensity_change,
                     track_h=4, thumb_r=7, p_bg=BG
-                    ).pack(fill="x", padx=16, pady=(0, 14))
+                    ).pack(fill="x", padx=16, pady=(0, 10))
 
         # ── Mode row ──────────────────────────────────────────────────────────
         mode_row = tk.Frame(card, bg=BG)
-        mode_row.pack(fill="x", padx=20, pady=(14, 14))
+        mode_row.pack(fill="x", padx=20, pady=(10, 10))
         tk.Label(mode_row, text="Modus", bg=BG, fg=FG,
-                 font=("Inter", 13, "bold")).pack(side="left")
+                 font=("Inter", 11, "bold")).pack(side="left")
 
         def _select_mode(m):
             self._vib_mode = m
@@ -1444,10 +1444,10 @@ class App(tk.Tk):
 
         # ── Test row ──────────────────────────────────────────────────────────
         test_row = tk.Frame(card, bg=BG)
-        test_row.pack(fill="x", padx=20, pady=(16, 22))
+        test_row.pack(fill="x", padx=20, pady=(10, 16))
 
         tk.Label(test_row, text="Test", bg=BG, fg=FG,
-                 font=("Inter", 13, "bold")).pack(side="left")
+                 font=("Inter", 11, "bold")).pack(side="left")
 
         self._mkbtn(test_row, "R", self._pat_right).pack(side="right")
         self._mkbtn(test_row, "L", self._pat_left).pack(side="right", padx=(0, 10))
@@ -1471,7 +1471,7 @@ class App(tk.Tk):
                           fill=BG_BTN, fg=FG,
                           hover=BG_BTN, hover_fg=FG,
                           press=ACCENT, border_col=BORDER,
-                          font_spec=("Inter", 13, "bold"))
+                          font_spec=("Inter", 11, "bold"))
 
     # ── Drag ──────────────────────────────────────────────────────────────────
     def _drag_start(self, e):
