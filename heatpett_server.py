@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.6.5"
+SERVER_VERSION  = "v3.6.6"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 
@@ -1124,7 +1124,7 @@ class App(tk.Tk):
             try:
                 shutil.copyfile(src, dest)
                 ctypes.windll.shell32.ShellExecuteW(None, "open", dest, None, None, 1)
-                self.after(3000, self._on_close)
+                self.after(1500, lambda: os._exit(0))
             except Exception as e:
                 tk.messagebox.showerror("Update-Fehler", str(e), parent=self)
                 return
