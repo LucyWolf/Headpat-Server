@@ -57,8 +57,11 @@ OSC_HOST      = "127.0.0.1"
 VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
+# Matches "headpat"/"patstrap" anywhere; "left"/"right" only as whole words
+# so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
+_MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.7.0"
+SERVER_VERSION  = "v3.7.1"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 
@@ -2275,7 +2278,7 @@ class App(tk.Tk):
         is_avatar = address.startswith("/avatar/parameters/")
         if is_avatar:
             pname = address.split("/")[-1].lower()
-            is_hp = any(kw in pname for kw in ("headpat", "patstrap", "left", "right"))
+            is_hp = bool(_MOTOR_RE.search(pname))
             status = "PASS" if is_hp else "skip"
         else:
             status = "----"
@@ -2302,7 +2305,7 @@ class App(tk.Tk):
             return
 
         param = parts[3].lower()
-        if not any(kw in param for kw in ("headpat", "patstrap", "left", "right")):
+        if not _MOTOR_RE.search(param):
             return
 
         with self._ser_lock:
@@ -2319,9 +2322,9 @@ class App(tk.Tk):
         else:
             nibble = max(0, min(15, int(val * 15 * self._intensity)))
         self._last_motor_nz = time.time()
-        if   "left"  in param: self._send_motor(nibble, 0)
-        elif "right" in param: self._send_motor(0, nibble)
-        else:                  self._send_motor(nibble, nibble)
+        if   re.search(r'\bleft\b',  param): self._send_motor(nibble, 0)
+        elif re.search(r'\bright\b', param): self._send_motor(0, nibble)
+        else:                                self._send_motor(nibble, nibble)
 
     # ── Tick ─────────────────────────────────────────────────────────────────
     def _tick(self):
