@@ -20,20 +20,50 @@ try:
     import serial
     import serial.tools.list_ports
     SERIAL_OK = True
-except ImportError:
+except Exception:
     SERIAL_OK = False
 
 try:
     from pythonosc import dispatcher, osc_server
     OSC_OK = True
-except ImportError:
+except Exception:
     OSC_OK = False
 
 try:
     from PIL import Image, ImageTk, ImageDraw as _PilDraw
     PIL_OK = True
-except ImportError:
+except Exception:
     PIL_OK = False
+
+# ── Crash logger ──────────────────────────────────────────────────────────────
+def _setup_crash_log():
+    try:
+        import traceback as _tb
+        _log_dir  = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "HeadpatServer")
+        os.makedirs(_log_dir, exist_ok=True)
+        _log_path = os.path.join(_log_dir, "crash.log")
+
+        def _write(header, exc_type, exc_val, exc_tb):
+            try:
+                with open(_log_path, "a", encoding="utf-8") as _f:
+                    _f.write(f"\n=== {time.strftime('%Y-%m-%d %H:%M:%S')} {header} ===\n")
+                    _tb.print_exception(exc_type, exc_val, exc_tb, file=_f)
+            except Exception:
+                pass
+
+        def _excepthook(et, ev, etb):
+            _write("(main thread)", et, ev, etb)
+            sys.__excepthook__(et, ev, etb)
+
+        def _thread_hook(args):
+            _write("(thread)", args.exc_type, args.exc_value, args.exc_traceback)
+
+        sys.excepthook = _excepthook
+        threading.excepthook = _thread_hook
+    except Exception:
+        pass
+
+_setup_crash_log()
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 BG       = "#0d0f14"
@@ -61,7 +91,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.7.1"
+SERVER_VERSION  = "v3.7.2"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 
@@ -1459,8 +1489,11 @@ class App(tk.Tk):
                    press="#5a2525", p_bg=BG_TITLE
                    ).pack(side="right", padx=(0, 6), pady=8)
 
-        _gear_dim = self._render_gear_icon(15, active=False)
-        _gear_on  = self._render_gear_icon(15, active=True)
+        try:
+            _gear_dim = self._render_gear_icon(15, active=False)
+            _gear_on  = self._render_gear_icon(15, active=True)
+        except Exception:
+            _gear_dim = _gear_on = None
         RoundedBtn(tb, "⚙", self._open_settings,
                    w=28, h=28, r=7, font_size=13,
                    fill=BG_TITLE, fg=FG_DIM,
@@ -1470,8 +1503,11 @@ class App(tk.Tk):
                    ).pack(side="right", padx=2, pady=8)
 
         # ── Update button (always visible; gray=aktuell, blue=update) ───────────
-        self._sync_img_dim = self._render_sync_icon(17, active=False)
-        self._sync_img_on  = self._render_sync_icon(17, active=True)
+        try:
+            self._sync_img_dim = self._render_sync_icon(17, active=False)
+            self._sync_img_on  = self._render_sync_icon(17, active=True)
+        except Exception:
+            self._sync_img_dim = self._sync_img_on = None
         bsz = 28
         self._badge_cvs = tk.Canvas(tb, width=bsz, height=bsz,
                                     bg=BG_TITLE, highlightthickness=0, cursor="hand2")
@@ -1487,8 +1523,11 @@ class App(tk.Tk):
         self._badge_cvs.bind("<Button-1>", lambda _: self._open_update_dialog())
         self._badge_lbl = self._badge_cvs   # compat alias
 
-        _term_dim = self._render_terminal_icon(15, active=False)
-        _term_on  = self._render_terminal_icon(15, active=True)
+        try:
+            _term_dim = self._render_terminal_icon(15, active=False)
+            _term_on  = self._render_terminal_icon(15, active=True)
+        except Exception:
+            _term_dim = _term_on = None
         self._log_btn = RoundedBtn(tb, "≡", self._toggle_console,
                                    w=28, h=28, r=7, font_size=15,
                                    fill=BG_TITLE, fg=FG_DIM,
@@ -2390,5 +2429,25 @@ class App(tk.Tk):
         self.after(100, self._tick)
 
 
+def _crash_write(header, text):
+    try:
+        _log_dir  = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "HeadpatServer")
+        os.makedirs(_log_dir, exist_ok=True)
+        with open(os.path.join(_log_dir, "crash.log"), "a", encoding="utf-8") as _f:
+            _f.write(f"\n=== {time.strftime('%Y-%m-%d %H:%M:%S')} {header} ===\n")
+            _f.write(text)
+    except Exception:
+        pass
+
 if __name__ == "__main__":
-    App().mainloop()
+    import traceback as _tb2
+    try:
+        app = App()
+
+        def _tk_exc(exc_type, exc_val, exc_tb):
+            _crash_write("(tk callback)", "".join(_tb2.format_exception(exc_type, exc_val, exc_tb)))
+
+        app.report_callback_exception = _tk_exc
+        app.mainloop()
+    except Exception:
+        _crash_write("(startup)", _tb2.format_exc())

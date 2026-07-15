@@ -38,7 +38,7 @@ jobs:
             Set-Content installer.iss
 
       - name: Build exe with PyInstaller
-        run: pyinstaller --onedir --windowed --icon=icon.ico --name="Headpat Server" heatpett_server.py
+        run: pyinstaller --onedir --windowed --icon=icon.ico --add-data "icon.png:." --name="Headpat Server" heatpett_server.py
 
       - name: Install Inno Setup
         run: choco install innosetup -y
@@ -84,7 +84,7 @@ jobs:
           sed -i "s/SERVER_VERSION\s*=\s*\"[^\"]*\"/SERVER_VERSION = \"$VERSION\"/" heatpett_server.py
 
       - name: Build with PyInstaller
-        run: pyinstaller --onedir --windowed --name="HeadpatServer" --icon=icon.png heatpett_server.py
+        run: pyinstaller --onedir --windowed --name="HeadpatServer" --icon=icon.png --add-data "icon.png:." heatpett_server.py
 
       - name: Create AppDir
         run: |
