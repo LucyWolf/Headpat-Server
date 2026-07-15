@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.6.7"
+SERVER_VERSION  = "v3.6.8"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 
@@ -684,14 +684,20 @@ class App(tk.Tk):
         if not entry or entry.get("path"):
             return
         try:
-            suffix = os.path.splitext(entry["asset"])[1]
-            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-            tmp.close()
+            if key == "server" and os.name == "nt":
+                downloads = os.path.join(os.path.expanduser("~"), "Downloads")
+                os.makedirs(downloads, exist_ok=True)
+                dest = os.path.join(downloads, entry["asset"])
+            else:
+                suffix = os.path.splitext(entry["asset"])[1]
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+                tmp.close()
+                dest = tmp.name
             req = urllib.request.Request(
                 entry["url"], headers={"User-Agent": f"HeadpatServer/{SERVER_VERSION}"})
-            with urllib.request.urlopen(req, timeout=120) as r, open(tmp.name, "wb") as f:
+            with urllib.request.urlopen(req, timeout=120) as r, open(dest, "wb") as f:
                 shutil.copyfileobj(r, f)
-            self._updates[key]["path"] = tmp.name
+            self._updates[key]["path"] = dest
             name = {"headpat": "Headpat", "dongle": "Dongle", "server": "Server"}.get(key, key)
             self._log(f"Update bereit: {name} {entry['tag']}", "info")
         except Exception as e:
@@ -1119,11 +1125,8 @@ class App(tk.Tk):
         src = entry["path"]
         if os.name == "nt":
             import ctypes
-            downloads = os.path.join(os.path.expanduser("~"), "Downloads")
-            dest = os.path.join(downloads, "HeadpatServer-Setup.exe")
             try:
-                shutil.copyfile(src, dest)
-                ctypes.windll.shell32.ShellExecuteW(None, "open", dest, None, None, 1)
+                ctypes.windll.shell32.ShellExecuteW(None, "open", src, None, None, 1)
                 self.after(1500, lambda: os._exit(0))
             except Exception as e:
                 tk.messagebox.showerror("Update-Fehler", str(e), parent=self)
