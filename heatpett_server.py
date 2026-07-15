@@ -2162,6 +2162,7 @@ class App(tk.Tk):
         if not port:
             self._log("Kein Port ausgewählt", "warn")
             return
+        self._log(f"Verbinde mit {port}…", "info")
         threading.Thread(target=self._connect_bg, args=(port,), daemon=True).start()
 
     def _connect_bg(self, port):
