@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.6.4"
+SERVER_VERSION  = "v3.6.5"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 
@@ -90,7 +90,7 @@ TRANSLATIONS = {
         "settings_title": "Einstellungen",
         "sec_connection": "Verbindung",
         "sec_board": "Dongle-Board",
-        "sec_commands": "Dongle Befehle",
+        "sec_commands": "Dongle-Befehle",
         "sec_versions": "Versionen",
         "sec_language": "Sprache",
         "btn_search": "Suchen",
@@ -1108,12 +1108,12 @@ class App(tk.Tk):
                 time.sleep(0.3)
             self._log(f"[HEADPAT] DFU gesendet an {port}, warte auf Laufwerk…", "info")
         except Exception as e:
-            self._log(f"[HEADPAT] DFU-Fehler: {e}", "error")
+            self._log(f"[HEADPAT] DFU-Fehler: {e}", "err")
 
     def _server_update(self, key):
         entry = self._updates.get(key)
         if not entry or not entry.get("path"):
-            tk.messagebox.showinfo("Bitte warten", "Download läuft noch...", parent=self)
+            tk.messagebox.showinfo("Bitte warten", "Download läuft noch…", parent=self)
             return
         import subprocess
         src = entry["path"]
@@ -1523,7 +1523,7 @@ class App(tk.Tk):
         # ── Intensity label + % ───────────────────────────────────────────────
         int_label_row = tk.Frame(card, bg=BG)
         int_label_row.pack(fill="x", padx=20, pady=(10, 2))
-        tk.Label(int_label_row, text="Intensity", bg=BG, fg=FG,
+        tk.Label(int_label_row, text="Intensität", bg=BG, fg=FG,
                  font=("Inter", fl, "bold")).pack(side="left")
         tk.Label(int_label_row, textvariable=self._int_pct_var, bg=BG, fg=ACCENT,
                  font=("JetBrains Mono", fp, "bold")).pack(side="right")
@@ -2037,7 +2037,7 @@ class App(tk.Tk):
                     except FileNotFoundError:
                         pass
         except Exception as e:
-            self._log(f"[AUTOSTART] Fehler: {e}", "error")
+            self._log(f"[AUTOSTART] Fehler: {e}", "err")
 
     def _close_settings(self):
         self._settings_open = False
@@ -2081,14 +2081,14 @@ class App(tk.Tk):
             self._log(f"Dongle bereits verbunden: {ser.port}", "info")
             self._port_var.set(ser.port)
             return
-        self._log("Suche Headpat Dongle…", "info")
+        self._log("Suche Headpat-Dongle…", "info")
         def _run():
             port = self._auto_find_dongle_port()
             if port:
                 self._port_var.set(port)
                 self._log(f"Dongle gefunden: {port}", "info")
             else:
-                self._log("Kein Headpat Dongle gefunden", "warn")
+                self._log("Kein Headpat-Dongle gefunden", "warn")
         threading.Thread(target=_run, daemon=True).start()
 
     def _toggle_serial(self):
@@ -2119,18 +2119,18 @@ class App(tk.Tk):
             if port:
                 self._port_var.set(port)
             else:
-                self._log("Kein Headpat Dongle gefunden — Port manuell auswählen", "warn")
+                self._log("Kein Headpat-Dongle gefunden — Port manuell auswählen", "warn")
                 return
         try:
             ser = serial.Serial(port, BAUD, timeout=1)
             with self._ser_lock:
                 self._ser = ser
-            self._log(f"Serial verbunden: {port}", "info")
+            self._log(f"Verbunden: {port}", "info")
             threading.Thread(target=self._serial_loop, daemon=True).start()
             self._save_config()
             self.after(0, self._update_conn_btn)
         except Exception as e:
-            self._log(f"Serial Fehler: {e}", "err")
+            self._log(f"Verbindungsfehler: {e}", "err")
 
     def _disconnect(self):
         with self._ser_lock:
@@ -2149,7 +2149,7 @@ class App(tk.Tk):
         self._dongle_ver_var.set("?")
         self._updates.pop("headpat", None)
         self._updates.pop("dongle",  None)
-        self._log("Serial getrennt", "warn")
+        self._log("Verbindung getrennt", "warn")
         self._save_config()
         self.after(0, self._update_conn_btn)
 
@@ -2261,7 +2261,7 @@ class App(tk.Tk):
             d.set_default_handler(self._osc_recv)
             osc_server.ThreadingOSCUDPServer((OSC_HOST, OSC_RX_PORT), d).serve_forever()
         except Exception as e:
-            self._log(f"OSC Fehler: {e}", "err")
+            self._log(f"OSC-Fehler: {e}", "err")
 
     def _osc_recv(self, address: str, *args):
         val_str = f"{float(args[0]):.3f}" if args else "?"
