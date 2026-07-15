@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.6.9"
+SERVER_VERSION  = "v3.7.0"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 
@@ -2139,6 +2139,8 @@ class App(tk.Tk):
         with self._ser_lock:
             ser, self._ser = self._ser, None
         if ser:
+            try: ser.write(b"m:00\n")
+            except: pass
             try: ser.close()
             except: pass
         self._ble_connected = False
@@ -2302,6 +2304,10 @@ class App(tk.Tk):
         param = parts[3].lower()
         if not any(kw in param for kw in ("headpat", "patstrap", "left", "right")):
             return
+
+        with self._ser_lock:
+            if self._ser is None:
+                return
 
         val = float(args[0]) if args else 0.0
         stop_at = 0.5 if self._vib_mode == 1 else 0.1
