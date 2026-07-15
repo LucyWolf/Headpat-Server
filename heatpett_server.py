@@ -58,7 +58,7 @@ VRC_TIMEOUT   = 5.0
 INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 
-SERVER_VERSION  = "v3.6.8"
+SERVER_VERSION  = "v3.6.9"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 
@@ -2304,7 +2304,7 @@ class App(tk.Tk):
             return
 
         val = float(args[0]) if args else 0.0
-        stop_at = 0.5 if self._vib_mode == 1 else 0.02
+        stop_at = 0.5 if self._vib_mode == 1 else 0.1
         if val < stop_at:
             self._send_motor(0, 0)
             return
