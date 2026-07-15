@@ -31,7 +31,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "autostart"; Description: "Beim Windows-Start automatisch ausführen"; GroupDescription: "Optionen"; Flags: unchecked
 
 [Files]
-Source: "dist\Headpat Server.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\Headpat Server\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
