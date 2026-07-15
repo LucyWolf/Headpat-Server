@@ -2160,19 +2160,18 @@ class App(tk.Tk):
         if not SERIAL_OK:
             return
         if not port:
-            port = self._auto_find_dongle_port()
-            if port:
-                self._port_var.set(port)
-            else:
-                self._log("Kein Headpat-Dongle gefunden — Port manuell auswählen", "warn")
-                return
+            self._log("Kein Port ausgewählt", "warn")
+            return
+        threading.Thread(target=self._connect_bg, args=(port,), daemon=True).start()
+
+    def _connect_bg(self, port):
         try:
             ser = serial.Serial(port, BAUD, timeout=1)
             with self._ser_lock:
                 self._ser = ser
             self._log(f"Verbunden: {port}", "info")
             threading.Thread(target=self._serial_loop, daemon=True).start()
-            self._save_config()
+            self.after(0, self._save_config)
             self.after(0, self._update_conn_btn)
         except Exception as e:
             self._log(f"Verbindungsfehler: {e}", "err")
