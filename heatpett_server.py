@@ -635,7 +635,7 @@ class App(tk.Tk):
         self._start_osc()
         self._tick()
         if self._cfg.get("auto_connect") and self._port_var.get():
-            self.after(300, self._connect)
+            self.after(0, self._connect)
         if os.name == "posix":
             self.after(800, self._check_linux_serial_perms)
         threading.Thread(target=self._update_loop, daemon=True).start()
@@ -2426,7 +2426,7 @@ class App(tk.Tk):
             self._last_motor_nz = 0.0
             self._send_motor(0, 0)
 
-        self.after(100, self._tick)
+        self.after(50, self._tick)
 
 
 def _crash_write(header, text):
