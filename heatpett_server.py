@@ -13,8 +13,18 @@ import os
 import sys
 import urllib.request
 import urllib.error
+import ssl
 import tempfile
 import shutil
+
+try:
+    import certifi as _certifi
+    _SSL_CTX = ssl.create_default_context(cafile=_certifi.where())
+except Exception:
+    try:
+        _SSL_CTX = ssl.create_default_context()
+    except Exception:
+        _SSL_CTX = None
 
 try:
     import serial
@@ -91,10 +101,10 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.7.3"
+SERVER_VERSION  = "v3.7.4"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
-
+DONGLE_REPO     = "dongel_NRF"
 SERVER_REPO     = "Headpat-Server"
 NRF52_LABELS    = {"NRF52BOOT", "NICENANO"}
 UPDATE_INTERVAL = 300
@@ -653,6 +663,7 @@ class App(tk.Tk):
         asset_lin  = "HeadpatServer-x86_64.AppImage"
         checks = [
             ("headpat", HEADPAT_REPO, "headpat-firmware.uf2"),
+            ("dongle",  DONGLE_REPO,  "dongle-nicenano.uf2"),
             ("server",  SERVER_REPO,  asset_win if os.name == "nt" else asset_lin),
         ]
         found_any    = False
@@ -680,12 +691,17 @@ class App(tk.Tk):
                 if key == "headpat" and self._hp_version != "?" and \
                         self._parse_ver(tag) <= self._parse_ver(self._hp_version):
                     continue
+                if key == "dongle" and self._dongle_version != "?" and \
+                        self._parse_ver(tag) <= self._parse_ver(self._dongle_version):
+                    continue
                 self._log(f"Update {key}: {tag} verfügbar", "info")
                 self._updates[key] = {"tag": tag, "url": assets[asset_name],
                                       "asset": asset_name, "path": None}
                 self._q.put(("update_found", (key, tag)))
                 threading.Thread(target=self._prefetch, args=(key,), daemon=True).start()
                 found_any = True
+            except RuntimeError as e:
+                self._log(f"Update {key}: {e}", "info")
             except Exception as e:
                 self._log(f"Update {key}: Netzwerkfehler – {e}", "warn")
                 net_errors += 1
@@ -696,8 +712,16 @@ class App(tk.Tk):
     def _gh_latest(self, repo):
         url = f"https://api.github.com/repos/{GITHUB_OWNER}/{repo}/releases/latest"
         req = urllib.request.Request(url, headers={"User-Agent": f"HeadpatServer/{SERVER_VERSION}"})
-        with urllib.request.urlopen(req, timeout=10) as r:
-            return json.loads(r.read())
+        kwargs = {"timeout": 10}
+        if _SSL_CTX is not None:
+            kwargs["context"] = _SSL_CTX
+        try:
+            with urllib.request.urlopen(req, **kwargs) as r:
+                return json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                raise RuntimeError(f"kein Release in {repo}")
+            raise
 
     def _parse_ver(self, tag):
         return tuple(int(x) for x in re.findall(r'\d+', tag))
@@ -1003,11 +1027,15 @@ class App(tk.Tk):
 
         # ── Bottom ────────────────────────────────────────────────────────
         def _refresh():
-            win.destroy()
+            for w in body.winfo_children():
+                w.destroy()
+            tk.Label(body, text="Suche nach Updates…", bg=BG, fg=FG_DIM,
+                     font=("Inter", 10), pady=20).pack()
+            win.update_idletasks()
             self._log("Suche nach Updates…", "info")
             def _run():
                 self._check_all_releases()
-                self.after(0, self._open_update_dialog)
+                self.after(0, lambda: (win.destroy(), self._open_update_dialog()))
             threading.Thread(target=_run, daemon=True).start()
 
         tk.Frame(body, bg=BORDER, height=1).pack(fill="x")
