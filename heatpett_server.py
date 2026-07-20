@@ -101,7 +101,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.7.6"
+SERVER_VERSION  = "v3.7.7"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1078,7 +1078,25 @@ class App(tk.Tk):
                                    parent=self)
             return
 
-        self._open_headpat_flash_dialog()
+        if key == "dongle":
+            with self._ser_lock:
+                ser = self._ser
+            if not ser or not ser.is_open:
+                tk.messagebox.showwarning(
+                    "Dongle nicht verbunden",
+                    "Dongle per USB verbinden und dann erneut versuchen.",
+                    parent=self)
+                return
+            self._pending_flash = "dongle"
+            try:
+                ser.write(b"dfu\n")
+                self._log("Dongle DFU gesendet — warte auf UF2-Laufwerk…", "info")
+                self.after(500, self._disconnect)
+            except Exception as e:
+                self._pending_flash = None
+                self._log(f"Dongle DFU fehlgeschlagen: {e}", "err")
+        else:
+            self._open_headpat_flash_dialog()
 
     def _open_headpat_flash_dialog(self):
         win = tk.Toplevel(self)
