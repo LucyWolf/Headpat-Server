@@ -101,7 +101,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.7.9"
+SERVER_VERSION  = "v3.8.0"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -613,7 +613,10 @@ class App(tk.Tk):
         self._dongle_ver_var = tk.StringVar(value="?")
         self._save_after_id  = None
         self._updates               = {}   # "headpat"|"dongle"|"server" -> {tag, url, asset, path}
-        self._last_check_had_errors = False
+        self._last_check_had_errors  = False
+        self._last_check_rate_limited = False
+        self._checking_updates       = False
+        self._rate_limit_until       = 0.0
         self._manual_uf2_path       = None
         self._pending_flash         = None
         self._known_drives   = set()
@@ -660,55 +663,76 @@ class App(tk.Tk):
             time.sleep(UPDATE_INTERVAL)
 
     def _check_all_releases(self):
-        asset_win  = "HeadpatServer-Setup.exe"
-        asset_lin  = "HeadpatServer-x86_64.AppImage"
-        checks = [
-            ("headpat", HEADPAT_REPO, "headpat-firmware.uf2"),
-            ("dongle",  DONGLE_REPO,  "dongle-nicenano.uf2"),
-            ("server",  SERVER_REPO,  asset_win if os.name == "nt" else asset_lin),
-        ]
-        found_any    = False
-        net_errors   = 0
-        checks_done  = 0
-        for key, repo, asset_name in checks:
-            try:
-                data   = self._gh_latest(repo)
-                checks_done += 1
-                tag    = data.get("tag_name", "")
-                if not tag:
-                    self._log(f"Update {key}: keine Version in API-Antwort", "warn")
-                    continue
-                assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
-                if asset_name not in assets:
-                    self._log(f"Update {key}: Asset '{asset_name}' nicht in {tag}", "info")
-                    continue
-                existing = self._updates.get(key, {})
-                if existing.get("tag") == tag:
+        if self._checking_updates:
+            return
+        if time.monotonic() < self._rate_limit_until:
+            return
+        self._checking_updates = True
+        try:
+            asset_win  = "HeadpatServer-Setup.exe"
+            asset_lin  = "HeadpatServer-x86_64.AppImage"
+            checks = [
+                ("headpat", HEADPAT_REPO, "headpat-firmware.uf2"),
+                ("dongle",  DONGLE_REPO,  "dongle-nicenano.uf2"),
+                ("server",  SERVER_REPO,  asset_win if os.name == "nt" else asset_lin),
+            ]
+            found_any    = False
+            net_errors   = 0
+            checks_done  = 0
+            rate_limited = False
+            for key, repo, asset_name in checks:
+                try:
+                    data   = self._gh_latest(repo)
+                    checks_done += 1
+                    tag    = data.get("tag_name", "")
+                    if not tag:
+                        self._log(f"Update {key}: keine Version in API-Antwort", "warn")
+                        continue
+                    assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
+                    if asset_name not in assets:
+                        self._log(f"Update {key}: Asset '{asset_name}' nicht in {tag}", "info")
+                        continue
+                    existing = self._updates.get(key, {})
+                    if existing.get("tag") == tag:
+                        found_any = True
+                        continue
+                    if key == "server" and self._parse_ver(tag) <= self._parse_ver(SERVER_VERSION):
+                        self._log(f"Server aktuell ({SERVER_VERSION}), neueste: {tag}", "info")
+                        continue
+                    if key == "headpat" and self._hp_version != "?" and \
+                            self._parse_ver(tag) <= self._parse_ver(self._hp_version):
+                        continue
+                    if key == "dongle" and self._dongle_version != "?" and \
+                            self._parse_ver(tag) <= self._parse_ver(self._dongle_version):
+                        continue
+                    self._log(f"Update {key}: {tag} verfügbar", "info")
+                    self._updates[key] = {"tag": tag, "url": assets[asset_name],
+                                          "asset": asset_name, "path": None}
+                    self._q.put(("update_found", (key, tag)))
+                    threading.Thread(target=self._prefetch, args=(key,), daemon=True).start()
                     found_any = True
-                    continue
-                if key == "server" and self._parse_ver(tag) <= self._parse_ver(SERVER_VERSION):
-                    self._log(f"Server aktuell ({SERVER_VERSION}), neueste: {tag}", "info")
-                    continue
-                if key == "headpat" and self._hp_version != "?" and \
-                        self._parse_ver(tag) <= self._parse_ver(self._hp_version):
-                    continue
-                if key == "dongle" and self._dongle_version != "?" and \
-                        self._parse_ver(tag) <= self._parse_ver(self._dongle_version):
-                    continue
-                self._log(f"Update {key}: {tag} verfügbar", "info")
-                self._updates[key] = {"tag": tag, "url": assets[asset_name],
-                                      "asset": asset_name, "path": None}
-                self._q.put(("update_found", (key, tag)))
-                threading.Thread(target=self._prefetch, args=(key,), daemon=True).start()
-                found_any = True
-            except RuntimeError as e:
-                self._log(f"Update {key}: {e}", "info")
-            except Exception as e:
-                self._log(f"Update {key}: Netzwerkfehler – {e}", "warn")
-                net_errors += 1
-        self._last_check_had_errors = (net_errors > 0 and checks_done == 0)
-        if not found_any and checks_done > 0:
-            self._log("Alle Komponenten aktuell.", "info")
+                except RuntimeError as e:
+                    self._log(f"Update {key}: {e}", "info")
+                except urllib.error.HTTPError as e:
+                    if e.code == 403:
+                        rate_limited = True
+                        self._log(f"Update {key}: GitHub Rate Limit (403)", "warn")
+                    else:
+                        self._log(f"Update {key}: HTTP {e.code} – {e.reason}", "warn")
+                    net_errors += 1
+                except Exception as e:
+                    self._log(f"Update {key}: Netzwerkfehler – {e}", "warn")
+                    net_errors += 1
+            if rate_limited:
+                self._last_check_rate_limited = True
+                self._rate_limit_until = time.monotonic() + 60
+            else:
+                self._last_check_rate_limited = False
+            self._last_check_had_errors = (net_errors > 0 and checks_done == 0 and not rate_limited)
+            if not found_any and checks_done > 0:
+                self._log("Alle Komponenten aktuell.", "info")
+        finally:
+            self._checking_updates = False
 
     def _gh_latest(self, repo):
         url = f"https://api.github.com/repos/{GITHUB_OWNER}/{repo}/releases/latest"
@@ -1019,7 +1043,10 @@ class App(tk.Tk):
                            font_spec=("Inter", 10, "bold")
                            ).pack(side="right")
         else:
-            if self._last_check_had_errors:
+            if self._last_check_rate_limited:
+                tk.Label(body, text="GitHub Rate Limit erreicht.\nBitte in ~1 Minute erneut versuchen.",
+                         bg=BG, fg=YELLOW, font=("Inter", 10), justify="center", pady=14).pack()
+            elif self._last_check_had_errors:
                 tk.Label(body, text="GitHub nicht erreichbar.\nDetails im Terminal.", bg=BG,
                          fg=YELLOW, font=("Inter", 10), justify="center", pady=14).pack()
             else:
