@@ -122,7 +122,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.8.2"
+SERVER_VERSION  = "v3.8.3"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -612,8 +612,11 @@ class App(tk.Tk):
         self._intensity     = self._cfg.get("intensity", 50) / 100
         self._vrc_connected = False
         self._ble_connected = False
-        self._last_osc      = 0.0
-        self._last_motor_nz = 0.0  # last time a non-zero motor value was sent
+        self._last_osc          = 0.0
+        self._last_motor_nz     = 0.0
+        self._motor_left_target  = 0
+        self._motor_right_target = 0
+        self._motor_last_sent    = (-1, -1)
         self._drag_x        = 0
         self._drag_y        = 0
         self._logo_img      = None
@@ -2387,7 +2390,10 @@ class App(tk.Tk):
         with self._ser_lock:
             ser = self._ser
         if ser:
-            try: ser.write(f"m:{(left_n << 4 | right_n):02X}\n".encode())
+            try:
+                if left_n == 0 and right_n == 0:
+                    ser.reset_output_buffer()
+                ser.write(f"m:{(left_n << 4 | right_n):02X}\n".encode())
             except: pass
 
     def _pat_left(self):
@@ -2460,16 +2466,23 @@ class App(tk.Tk):
         val = float(args[0]) if args else 0.0
         stop_at = 0.5 if self._vib_mode == 1 else 0.1
         if val < stop_at:
-            self._send_motor(0, 0)
+            self._motor_left_target  = 0
+            self._motor_right_target = 0
             return
         if self._vib_mode == 1:
             nibble = max(1, int(15 * self._intensity))
         else:
             nibble = max(0, min(15, int(val * 15 * self._intensity)))
         self._last_motor_nz = time.time()
-        if   re.search(r'\bleft\b',  param): self._send_motor(nibble, 0)
-        elif re.search(r'\bright\b', param): self._send_motor(0, nibble)
-        else:                                self._send_motor(nibble, nibble)
+        if   re.search(r'\bleft\b',  param):
+            self._motor_left_target  = nibble
+            self._motor_right_target = 0
+        elif re.search(r'\bright\b', param):
+            self._motor_left_target  = 0
+            self._motor_right_target = nibble
+        else:
+            self._motor_left_target  = nibble
+            self._motor_right_target = nibble
 
     # ── Tick ─────────────────────────────────────────────────────────────────
     def _tick(self):
@@ -2526,11 +2539,19 @@ class App(tk.Tk):
             if self._vrc_connected and now - self._last_osc > VRC_TIMEOUT:
                 self._vrc_connected = False
                 self._set_dot(self._vrc_dot, RED)
-                self._send_motor(0, 0)
+                self._motor_left_target  = 0
+                self._motor_right_target = 0
 
             if self._last_motor_nz and now - self._last_motor_nz > 0.15:
-                self._last_motor_nz = 0.0
-                self._send_motor(0, 0)
+                self._last_motor_nz      = 0.0
+                self._motor_left_target  = 0
+                self._motor_right_target = 0
+
+            left  = self._motor_left_target
+            right = self._motor_right_target
+            if (left, right) != self._motor_last_sent:
+                self._send_motor(left, right)
+                self._motor_last_sent = (left, right)
 
         except Exception:
             import traceback
