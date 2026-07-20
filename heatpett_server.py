@@ -122,7 +122,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.8.1"
+SERVER_VERSION  = "v3.8.2"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1694,6 +1694,11 @@ class App(tk.Tk):
         test_row.pack(fill="x", padx=20, pady=(8, 14))
         tk.Label(test_row, text="Test", bg=BG, fg=FG,
                  font=("Inter", fl, "bold")).pack(side="left")
+        RoundedBtn(test_row, "Sleep", lambda: self._send_cmd("hpsleep"),
+                   w=62, h=36, r=8, p_bg=BG,
+                   fill=BG_BTN, fg="#a78bfa", hover=BG_BTN_A, hover_fg="#c4b5fd",
+                   border_col=BORDER, font_spec=("Inter", 10, "bold")
+                   ).pack(side="left", padx=(12, 0))
         self._mkbtn(test_row, "R", self._pat_right).pack(side="right")
         self._mkbtn(test_row, "L", self._pat_left).pack(side="right", padx=(0, 10))
 
