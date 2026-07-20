@@ -122,7 +122,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.8.3"
+SERVER_VERSION  = "v3.8.4"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -723,11 +723,13 @@ class App(tk.Tk):
                     if key == "server" and self._parse_ver(tag) <= self._parse_ver(SERVER_VERSION):
                         self._log(f"Server aktuell ({SERVER_VERSION}), neueste: {tag}", "info")
                         continue
-                    if key == "headpat" and self._hp_version != "?" and \
-                            self._parse_ver(tag) <= self._parse_ver(self._hp_version):
+                    hp_ver     = self._hp_version     if self._hp_version     != "?" else self._cfg.get("hp_version",     "?")
+                    dongle_ver = self._dongle_version if self._dongle_version != "?" else self._cfg.get("dongle_version", "?")
+                    if key == "headpat" and hp_ver != "?" and \
+                            self._parse_ver(tag) <= self._parse_ver(hp_ver):
                         continue
-                    if key == "dongle" and self._dongle_version != "?" and \
-                            self._parse_ver(tag) <= self._parse_ver(self._dongle_version):
+                    if key == "dongle" and dongle_ver != "?" and \
+                            self._parse_ver(tag) <= self._parse_ver(dongle_ver):
                         continue
                     self._log(f"Update {key}: {tag} verfügbar", "info")
                     self._updates[key] = {"tag": tag, "url": assets[asset_name],
@@ -1377,6 +1379,8 @@ class App(tk.Tk):
             "dongle_board":  self._board_var.get(),
             "lang":          self._lang_var.get(),
             "vib_mode":      self._vib_mode,
+            "hp_version":     self._hp_version     if self._hp_version     != "?" else self._cfg.get("hp_version",     "?"),
+            "dongle_version": self._dongle_version  if self._dongle_version != "?" else self._cfg.get("dongle_version", "?"),
         }
         try:
             os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -2506,10 +2510,12 @@ class App(tk.Tk):
                         self._set_dot(self._vrc_dot, GREEN if val else RED)
                     elif tag == "hp_ver":
                         self._hp_version = val
+                        self._cfg["hp_version"] = val
                         self._hp_ver_var.set(val)
                         self._recheck_firmware_updates()
                     elif tag == "dongle_ver":
                         self._dongle_version = val
+                        self._cfg["dongle_version"] = val
                         self._dongle_ver_var.set(val)
                         self._recheck_firmware_updates()
                     elif tag == "serial_lost":
