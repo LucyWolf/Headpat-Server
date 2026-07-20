@@ -101,7 +101,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.7.8"
+SERVER_VERSION  = "v3.7.9"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -729,7 +729,7 @@ class App(tk.Tk):
 
     def _recheck_firmware_updates(self):
         changed = False
-        for key, cur in (("headpat", self._hp_version),):
+        for key, cur in (("headpat", self._hp_version), ("dongle", self._dongle_version)):
             if key in self._updates and cur != "?":
                 if self._parse_ver(self._updates[key]["tag"]) <= self._parse_ver(cur):
                     del self._updates[key]
