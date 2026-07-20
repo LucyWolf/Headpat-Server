@@ -75,6 +75,27 @@ def _setup_crash_log():
 
 _setup_crash_log()
 
+# ── Single-instance guard (Windows named mutex) ───────────────────────────────
+_SINGLE_INSTANCE_MUTEX = None
+
+def _ensure_single_instance():
+    global _SINGLE_INSTANCE_MUTEX
+    if os.name != "nt":
+        return
+    import ctypes
+    _SINGLE_INSTANCE_MUTEX = ctypes.windll.kernel32.CreateMutexW(None, False, "HeadpatServer_SingleInstance")
+    if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+        _r = tk.Tk()
+        _r.withdraw()
+        tk.messagebox.showwarning(
+            "Headpat Server läuft bereits",
+            "Der Server ist schon gestartet.\nBitte das vorhandene Fenster in der Taskleiste suchen.",
+            parent=None
+        )
+        _r.destroy()
+        sys.exit(0)
+
+
 # ── Colors ────────────────────────────────────────────────────────────────────
 BG       = "#0d0f14"
 BG_TITLE = "#11141c"
@@ -101,7 +122,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.8.0"
+SERVER_VERSION  = "v3.8.1"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -2524,6 +2545,7 @@ def _crash_write(header, text):
         pass
 
 if __name__ == "__main__":
+    _ensure_single_instance()
     import traceback as _tb2
     try:
         app = App()
