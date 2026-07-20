@@ -101,7 +101,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.7.4"
+SERVER_VERSION  = "v3.7.5"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -117,6 +117,8 @@ if os.name == "nt":
 else:
     CONFIG_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(os.path.expanduser("~"), ".config")), "HeadpatServer")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
+LOG_PATH    = os.path.join(CONFIG_DIR, "server.log")
+_LOG_LOCK   = threading.Lock()
 
 # ── Lang (loaded once at startup) ─────────────────────────────────────────────
 _LANG = "de"
@@ -615,11 +617,9 @@ class App(tk.Tk):
         self._manual_uf2_path       = None
         self._pending_flash         = None
         self._known_drives   = set()
-        self._badge_lbl      = None   # kept for compat
         self._badge_cvs      = None
         self._sync_img_dim   = None
         self._sync_img_on    = None
-        self._pending_flash  = None
 
         self._int_var        = tk.DoubleVar(value=50)
         self._int_pct_var    = tk.StringVar(value="50%")
@@ -648,6 +648,7 @@ class App(tk.Tk):
             self.after(0, self._connect)
         if os.name == "posix":
             self.after(800, self._check_linux_serial_perms)
+        self._log(f"=== Server gestartet {SERVER_VERSION} | Python {sys.version.split()[0]} ===", "info")
         threading.Thread(target=self._update_loop, daemon=True).start()
         threading.Thread(target=self._drive_loop,  daemon=True).start()
 
@@ -1549,7 +1550,6 @@ class App(tk.Tk):
                                         fill=FG_DIM, font=("Segoe UI", 14),
                                         tags="icon")
         self._badge_cvs.bind("<Button-1>", lambda _: self._open_update_dialog())
-        self._badge_lbl = self._badge_cvs   # compat alias
 
         try:
             _term_dim = self._render_terminal_icon(15, active=False)
@@ -1667,6 +1667,18 @@ class App(tk.Tk):
         entry = (ts, tag, text)
         self._log_buf.append(entry)
         self._q.put(("log", entry))
+        try:
+            with _LOG_LOCK:
+                os.makedirs(CONFIG_DIR, exist_ok=True)
+                if os.path.exists(LOG_PATH) and os.path.getsize(LOG_PATH) > 1_000_000:
+                    try:
+                        os.replace(LOG_PATH, LOG_PATH + ".old")
+                    except Exception:
+                        pass
+                with open(LOG_PATH, "a", encoding="utf-8") as _lf:
+                    _lf.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} [{tag:6s}] {text}\n")
+        except Exception:
+            pass
 
     # ── Console window ────────────────────────────────────────────────────────
     def _toggle_console(self):
@@ -2063,17 +2075,6 @@ class App(tk.Tk):
         win.deiconify()
         self.after(0, lambda: self._round_toplevel(win))
 
-    # ── Restart ───────────────────────────────────────────────────────────────
-    def _restart_app(self):
-        if os.name == "nt":
-            import ctypes
-            if getattr(sys, "frozen", False):
-                ctypes.windll.shell32.ShellExecuteW(None, "open", sys.executable, None, None, 1)
-            else:
-                import subprocess
-                subprocess.Popen([sys.executable, os.path.abspath(__file__)])
-        self.after(300, self._on_close)
-
     # ── Autostart ─────────────────────────────────────────────────────────────
     _AUTOSTART_KEY  = r"Software\Microsoft\Windows\CurrentVersion\Run"
     _AUTOSTART_NAME = "HeadpatServer"
@@ -2158,7 +2159,7 @@ class App(tk.Tk):
         def _run():
             port = self._auto_find_dongle_port()
             if port:
-                self._port_var.set(port)
+                self.after(0, lambda: self._port_var.set(port))
                 self._log(f"Dongle gefunden: {port}", "info")
             else:
                 self._log("Kein Headpat-Dongle gefunden", "warn")
@@ -2396,65 +2397,69 @@ class App(tk.Tk):
     # ── Tick ─────────────────────────────────────────────────────────────────
     def _tick(self):
         try:
-            while True:
-                tag, val = self._q.get_nowait()
-                if tag == "bat":
-                    pct = int(val)
-                    col = GREEN if pct >= 50 else YELLOW if pct >= 20 else RED
-                    self._bat_text = f"🔋 {pct}%"; self._bat_fg = col
-                    self._bat_lbl.config(text=self._bat_text, fg=self._bat_fg)
-                elif tag == "hp_ble":
-                    self._ble_connected = val
-                    self._set_dot(self._hp_dot, GREEN if val else RED)
-                    if not val:
-                        self._bat_text = "🔋 ?%"; self._bat_fg = FG_DIM
+            try:
+                while True:
+                    tag, val = self._q.get_nowait()
+                    if tag == "bat":
+                        pct = int(val)
+                        col = GREEN if pct >= 50 else YELLOW if pct >= 20 else RED
+                        self._bat_text = f"🔋 {pct}%"; self._bat_fg = col
                         self._bat_lbl.config(text=self._bat_text, fg=self._bat_fg)
-                elif tag == "vrc":
-                    self._vrc_connected = val
-                    self._set_dot(self._vrc_dot, GREEN if val else RED)
-                elif tag == "hp_ver":
-                    self._hp_version = val
-                    self._hp_ver_var.set(val)
-                    self._recheck_firmware_updates()
-                elif tag == "dongle_ver":
-                    self._dongle_version = val
-                    self._dongle_ver_var.set(val)
-                    self._recheck_firmware_updates()
-                elif tag == "serial_lost":
-                    self._disconnect()
-                elif tag == "update_found":
-                    key, ver = val
-                    names = {"headpat": "Headpat", "dongle": "Dongle", "server": "Server"}
-                    self._log(f"Update verfügbar: {names.get(key, key)} {ver}", "warn")
-                    self._set_badge_active(True)
-                elif tag == "nrf52_drive":
-                    self._on_nrf52_drive(val)
-                elif tag == "log":
-                    if (self._console_win and self._console_win.winfo_exists()
-                            and self._console_text):
-                        ts, ltag, text = val
-                        self._console_text.config(state="normal")
-                        self._console_text.insert("end", f"{ts}  {text}\n", ltag)
-                        n = int(self._console_text.index("end-1c").split(".")[0])
-                        if n > 500:
-                            self._console_text.delete("1.0", f"{n - 500}.0")
-                        self._console_text.see("end")
-                        self._console_text.config(state="disabled")
-        except queue.Empty:
-            pass
+                    elif tag == "hp_ble":
+                        self._ble_connected = val
+                        self._set_dot(self._hp_dot, GREEN if val else RED)
+                        if not val:
+                            self._bat_text = "🔋 ?%"; self._bat_fg = FG_DIM
+                            self._bat_lbl.config(text=self._bat_text, fg=self._bat_fg)
+                    elif tag == "vrc":
+                        self._vrc_connected = val
+                        self._set_dot(self._vrc_dot, GREEN if val else RED)
+                    elif tag == "hp_ver":
+                        self._hp_version = val
+                        self._hp_ver_var.set(val)
+                        self._recheck_firmware_updates()
+                    elif tag == "dongle_ver":
+                        self._dongle_version = val
+                        self._dongle_ver_var.set(val)
+                        self._recheck_firmware_updates()
+                    elif tag == "serial_lost":
+                        self._disconnect()
+                    elif tag == "update_found":
+                        key, ver = val
+                        names = {"headpat": "Headpat", "dongle": "Dongle", "server": "Server"}
+                        self._log(f"Update verfügbar: {names.get(key, key)} {ver}", "warn")
+                        self._set_badge_active(True)
+                    elif tag == "nrf52_drive":
+                        self._on_nrf52_drive(val)
+                    elif tag == "log":
+                        if (self._console_win and self._console_win.winfo_exists()
+                                and self._console_text):
+                            ts, ltag, text = val
+                            self._console_text.config(state="normal")
+                            self._console_text.insert("end", f"{ts}  {text}\n", ltag)
+                            n = int(self._console_text.index("end-1c").split(".")[0])
+                            if n > 500:
+                                self._console_text.delete("1.0", f"{n - 500}.0")
+                            self._console_text.see("end")
+                            self._console_text.config(state="disabled")
+            except queue.Empty:
+                pass
 
-        now = time.time()
-        if self._vrc_connected and now - self._last_osc > VRC_TIMEOUT:
-            self._vrc_connected = False
-            self._set_dot(self._vrc_dot, RED)
-            self._send_motor(0, 0)  # VRC weg → Motoren sofort stoppen
+            now = time.time()
+            if self._vrc_connected and now - self._last_osc > VRC_TIMEOUT:
+                self._vrc_connected = False
+                self._set_dot(self._vrc_dot, RED)
+                self._send_motor(0, 0)
 
-        # Watchdog: kein Motor-Update seit 150ms → stoppen
-        if self._last_motor_nz and now - self._last_motor_nz > 0.15:
-            self._last_motor_nz = 0.0
-            self._send_motor(0, 0)
+            if self._last_motor_nz and now - self._last_motor_nz > 0.15:
+                self._last_motor_nz = 0.0
+                self._send_motor(0, 0)
 
-        self.after(50, self._tick)
+        except Exception:
+            import traceback
+            self._log(f"[TICK] Unerwarteter Fehler:\n{traceback.format_exc()}", "err")
+        finally:
+            self.after(50, self._tick)
 
 
 def _crash_write(header, text):
