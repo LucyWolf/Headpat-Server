@@ -101,7 +101,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.7.7"
+SERVER_VERSION  = "v3.7.8"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -2247,7 +2247,8 @@ class App(tk.Tk):
         self._hp_ver_var.set("?")
         self._dongle_ver_var.set("?")
         self._updates.pop("headpat", None)
-        self._updates.pop("dongle",  None)
+        if self._pending_flash != "dongle":
+            self._updates.pop("dongle", None)
         self._log("Verbindung getrennt", "warn")
         self._save_config()
         self.after(0, self._update_conn_btn)
