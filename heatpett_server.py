@@ -101,7 +101,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.7.5"
+SERVER_VERSION  = "v3.7.6"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -1828,6 +1828,11 @@ class App(tk.Tk):
         RoundedBtn(dfu_row, "Flash UF2…", self._pick_and_flash_uf2,
                    w=CW, h=30, r=7, p_bg=BG,
                    fill=BG_BTN, fg=YELLOW, hover=BG_BTN_A, hover_fg=YELLOW,
+                   border_col=BORDER, font_spec=("Inter", 10, "bold")
+                   ).pack(side="left", padx=(0, 6))
+        RoundedBtn(dfu_row, "HP Sleep", lambda: self._send_cmd("hpsleep"),
+                   w=CW, h=30, r=7, p_bg=BG,
+                   fill=BG_BTN, fg="#a78bfa", hover=BG_BTN_A, hover_fg="#c4b5fd",
                    border_col=BORDER, font_spec=("Inter", 10, "bold")
                    ).pack(side="left")
 
