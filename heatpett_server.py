@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Headpat Server v2.6 — VRChat OSC <-> Headpat Dongle USB bridge"""
+"""Headpat Server v3.9.0 — VRChat OSC → Headpat via BLE-Direkt"""
 
 import tkinter as tk
 from tkinter import ttk, filedialog as tk_filedialog
@@ -26,6 +26,7 @@ except Exception:
     except Exception:
         _SSL_CTX = None
 
+# serial wird nur noch für Headpat-DFU-Trigger via USB benötigt
 try:
     import serial
     import serial.tools.list_ports
@@ -119,17 +120,16 @@ OSC_COL  = "#1a2d60"
 SEG_CONT = "#080a10"
 
 # ── Config ────────────────────────────────────────────────────────────────────
-BAUD          = 115200
+BAUD          = 115200   # für Headpat-DFU-Trigger via USB
 OSC_RX_PORT   = 9001
 OSC_HOST      = "127.0.0.1"
 VRC_TIMEOUT   = 5.0
-INFO_INTERVAL = 5.0
 BAT_INTERVAL  = 30.0
 # Matches "headpat"/"patstrap" anywhere; "left"/"right" only as whole words
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.8.6"
+SERVER_VERSION  = "v3.9.0"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -137,7 +137,6 @@ NUS_TX  = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 HP_NAME = "Headpat"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
-DONGLE_REPO     = "dongel_NRF"
 SERVER_REPO     = "Headpat-Server"
 NRF52_LABELS    = {"NRF52BOOT", "NICENANO"}
 UPDATE_INTERVAL = 300
@@ -175,7 +174,7 @@ TRANSLATIONS = {
         "btn_check_updates": "Jetzt auf Updates prüfen",
         "btn_refresh": "Aktualisieren",
         "upd_available": "Verfügbare Updates",
-        "upd_usb_hint": "Dongle & Headpat müssen per USB\nmit dem PC verbunden sein.",
+        "upd_usb_hint": "Headpat muss per USB\nmit dem PC verbunden sein.",
         "upd_all_ok": "Alles aktuell.",
         "btn_close": "Schließen",
         "btn_update": "Update →",
@@ -196,7 +195,7 @@ TRANSLATIONS = {
         "btn_check_updates": "Check for Updates Now",
         "btn_refresh": "Refresh",
         "upd_available": "Available Updates",
-        "upd_usb_hint": "Dongle & Headpat must be connected\nvia USB for firmware updates.",
+        "upd_usb_hint": "Headpat must be connected\nvia USB for firmware updates.",
         "upd_all_ok": "Everything up to date.",
         "btn_close": "Close",
         "btn_update": "Update →",
@@ -617,8 +616,6 @@ class App(tk.Tk):
         self.configure(bg=BG_TITLE)
         self.resizable(False, False)
 
-        self._ser           = None
-        self._ser_lock      = threading.Lock()
         self._q             = queue.Queue()
         self._cfg           = self._load_config()
         self._intensity     = self._cfg.get("intensity", 50) / 100
@@ -636,23 +633,18 @@ class App(tk.Tk):
         self._drag_x        = 0
         self._drag_y        = 0
         self._logo_img      = None
-        self._port_var       = tk.StringVar(value=self._cfg.get("port", ""))
-        self._board_var      = tk.StringVar(value=self._cfg.get("dongle_board", "nicenano"))
         self._lang_var       = tk.StringVar(value=self._cfg.get("lang", "de"))
         self._settings_open     = False
         self._settings_win      = None
-        self._settings_conn_btn = None
         self._osc_verbose    = bool(self._cfg.get("osc_verbose", False))
         self._vib_mode       = int(self._cfg.get("vib_mode", 0))  # 0=proximity 1=trigger
         self._console_win    = None
         self._console_text   = None
         self._log_buf        = collections.deque(maxlen=500)
         self._hp_version     = "?"
-        self._dongle_version = "?"
         self._hp_ver_var     = tk.StringVar(value="?")
-        self._dongle_ver_var = tk.StringVar(value="?")
         self._save_after_id  = None
-        self._updates               = {}   # "headpat"|"dongle"|"server" -> {tag, url, asset, path}
+        self._updates               = {}   # "headpat"|"server" -> {tag, url, asset, path}
         self._last_check_had_errors  = False
         self._last_check_rate_limited = False
         self._checking_updates       = False
@@ -684,13 +676,10 @@ class App(tk.Tk):
             self.geometry(f"+{(sw-w)//2}+{(sh-h)//2}")
         self.after(200, self._fix_taskbar)
         self.after(100, self._apply_rounded_corners)
-        self._refresh_ports()
         self._start_osc()
         self._tick()
-        if self._cfg.get("auto_connect") and self._port_var.get():
-            self.after(0, self._connect)
-        if os.name == "posix":
-            self.after(800, self._check_linux_serial_perms)
+        if self._ble_address:
+            self.after(500, self._ble_connect)
         self._log(f"=== Server gestartet {SERVER_VERSION} | Python {sys.version.split()[0]} ===", "info")
         threading.Thread(target=self._update_loop, daemon=True).start()
         threading.Thread(target=self._drive_loop,  daemon=True).start()
@@ -713,7 +702,6 @@ class App(tk.Tk):
             asset_lin  = "HeadpatServer-x86_64.AppImage"
             checks = [
                 ("headpat", HEADPAT_REPO, "headpat-firmware.uf2"),
-                ("dongle",  DONGLE_REPO,  "dongle-nicenano.uf2"),
                 ("server",  SERVER_REPO,  asset_win if os.name == "nt" else asset_lin),
             ]
             found_any    = False
@@ -739,13 +727,9 @@ class App(tk.Tk):
                     if key == "server" and self._parse_ver(tag) <= self._parse_ver(SERVER_VERSION):
                         self._log(f"Server aktuell ({SERVER_VERSION}), neueste: {tag}", "info")
                         continue
-                    hp_ver     = self._hp_version     if self._hp_version     != "?" else self._cfg.get("hp_version",     "?")
-                    dongle_ver = self._dongle_version if self._dongle_version != "?" else self._cfg.get("dongle_version", "?")
+                    hp_ver = self._hp_version if self._hp_version != "?" else self._cfg.get("hp_version", "?")
                     if key == "headpat" and hp_ver != "?" and \
                             self._parse_ver(tag) <= self._parse_ver(hp_ver):
-                        continue
-                    if key == "dongle" and dongle_ver != "?" and \
-                            self._parse_ver(tag) <= self._parse_ver(dongle_ver):
                         continue
                     self._log(f"Update {key}: {tag} verfügbar", "info")
                     self._updates[key] = {"tag": tag, "url": assets[asset_name],
@@ -794,14 +778,10 @@ class App(tk.Tk):
         return tuple(int(x) for x in re.findall(r'\d+', tag))
 
     def _recheck_firmware_updates(self):
-        changed = False
-        for key, cur in (("headpat", self._hp_version), ("dongle", self._dongle_version)):
-            if key in self._updates and cur != "?":
-                if self._parse_ver(self._updates[key]["tag"]) <= self._parse_ver(cur):
-                    del self._updates[key]
-                    changed = True
-        if changed:
-            self._set_badge_active(bool(self._updates))
+        if "headpat" in self._updates and self._hp_version != "?":
+            if self._parse_ver(self._updates["headpat"]["tag"]) <= self._parse_ver(self._hp_version):
+                del self._updates["headpat"]
+                self._set_badge_active(bool(self._updates))
 
     def _prefetch(self, key):
         entry = self._updates.get(key)
@@ -822,7 +802,7 @@ class App(tk.Tk):
             with urllib.request.urlopen(req, timeout=120) as r, open(dest, "wb") as f:
                 shutil.copyfileobj(r, f)
             self._updates[key]["path"] = dest
-            name = {"headpat": "Headpat", "dongle": "Dongle", "server": "Server"}.get(key, key)
+            name = {"headpat": "Headpat", "server": "Server"}.get(key, key)
             self._log(f"Update bereit: {name} {entry['tag']}", "info")
         except Exception as e:
             self._log(f"Update-Download fehlgeschlagen ({key}): {e}", "warn")
@@ -881,20 +861,10 @@ class App(tk.Tk):
         if existing:
             self._on_nrf52_drive(existing)
             return
-        ser = self._ser
-        if ser and ser.is_open:
-            try:
-                ser.write(b"dfu\n")
-                self._log(f"Flash UF2: {os.path.basename(path)} — DFU-Befehl gesendet, warte auf Laufwerk…", "info")
-                self.after(500, self._disconnect)
-            except Exception as e:
-                self._manual_uf2_path = None
-                self._log(f"DFU-Befehl fehlgeschlagen: {e}", "err")
-        else:
-            self._log(f"Flash UF2: {os.path.basename(path)} — DFU-Modus manuell starten, dann Laufwerk wird erkannt…", "warn")
+        self._log(f"Flash UF2: {os.path.basename(path)} — DFU-Modus manuell starten, dann Laufwerk wird erkannt…", "warn")
 
     def _on_nrf52_drive(self, drives):
-        fw = {k: v for k, v in self._updates.items() if k in ("headpat", "dongle")}
+        fw = {k: v for k, v in self._updates.items() if k == "headpat"}
         drive = next(iter(drives))
         self._log(f"NRF52-Laufwerk erkannt: {drive}", "info")
 
@@ -906,8 +876,7 @@ class App(tk.Tk):
             self._log(f"Manueller Flash: {os.path.basename(path)}", "info")
             try:
                 shutil.copy2(path, os.path.join(drive, os.path.basename(path)))
-                self._log("Flash erfolgreich — Dongle startet neu…", "info")
-                self.after(4000, self._connect)
+                self._log("Flash erfolgreich — Headpat startet neu…", "info")
             except Exception as e:
                 self._log(f"Flash fehlgeschlagen: {e}", "err")
             return
@@ -921,28 +890,7 @@ class App(tk.Tk):
             self._flash_uf2_wait(self._pending_flash, drive)
             return
 
-        if len(fw) == 1:
-            self._flash_uf2_wait(next(iter(fw)), drive)
-        else:
-            win = tk.Toplevel(self)
-            win.title("Firmware Update")
-            win.configure(bg=BG)
-            win.resizable(False, False)
-            win.grab_set()
-            tk.Label(win, text="Welches Gerät flashen?",
-                     bg=BG, fg=FG, font=("Segoe UI", 11), pady=12).pack(padx=20)
-            for key, entry in fw.items():
-                name = "Headpat" if key == "headpat" else "Dongle"
-                def _do(k=key, w=win, d=drive):
-                    w.destroy(); self._flash_uf2_wait(k, d)
-                tk.Button(win, text=f"{name}  —  {entry['tag']}", command=_do,
-                          bg=BG_BTN, fg=FG, activebackground=BG_BTN_A, bd=0,
-                          relief="flat", font=("Segoe UI", 11), padx=16, pady=8,
-                          cursor="hand2").pack(fill="x", padx=20, pady=4)
-            tk.Button(win, text="Abbrechen", command=win.destroy,
-                      bg=BG_TITLE, fg=FG_DIM, activebackground=BG_BTN, bd=0,
-                      relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
-                      cursor="hand2").pack(pady=(4, 16))
+        self._flash_uf2_wait("headpat", drive)
 
     def _flash_uf2_wait(self, key, drive):
         entry = self._updates.get(key)
@@ -1000,10 +948,7 @@ class App(tk.Tk):
         try:
             dest = os.path.join(drive, "firmware.uf2")
             shutil.copyfile(entry["path"], dest)
-            name = "Headpat" if key == "headpat" else "Dongle"
-            self._log(f"{name} {entry['tag']} geflasht — Gerät bootet neu", "info")
-            if key == "dongle":
-                self.after(4000, self._connect)
+            self._log(f"Headpat {entry['tag']} geflasht — Gerät bootet neu", "info")
         except Exception as e:
             tk.messagebox.showerror("Flash-Fehler", str(e), parent=self)
 
@@ -1058,7 +1003,7 @@ class App(tk.Tk):
         tk.Label(head, text=_t("upd_usb_hint"), bg=BG, fg=FG_DIM,
                  font=("Inter", 9), justify="left", anchor="w").pack(anchor="w", pady=(3, 0))
 
-        labels = {"headpat": "Headpat Firmware", "dongle": "Dongle Firmware", "server": "Server"}
+        labels = {"headpat": "Headpat Firmware", "server": "Server"}
         if self._updates:
             for key, entry in self._updates.items():
                 tk.Frame(body, bg=BORDER, height=1).pack(fill="x", padx=20)
@@ -1138,34 +1083,7 @@ class App(tk.Tk):
     def _initiate_flash(self, key, dialog=None):
         if dialog:
             dialog.destroy()
-        entry = self._updates.get(key)
-        if not entry:
-            return
-        if not entry.get("path"):
-            tk.messagebox.showinfo("Bitte warten",
-                                   "Download läuft noch, kurz warten und nochmal versuchen.",
-                                   parent=self)
-            return
-
-        if key == "dongle":
-            with self._ser_lock:
-                ser = self._ser
-            if not ser or not ser.is_open:
-                tk.messagebox.showwarning(
-                    "Dongle nicht verbunden",
-                    "Dongle per USB verbinden und dann erneut versuchen.",
-                    parent=self)
-                return
-            self._pending_flash = "dongle"
-            try:
-                ser.write(b"dfu\n")
-                self._log("Dongle DFU gesendet — warte auf UF2-Laufwerk…", "info")
-                self.after(500, self._disconnect)
-            except Exception as e:
-                self._pending_flash = None
-                self._log(f"Dongle DFU fehlgeschlagen: {e}", "err")
-        else:
-            self._open_headpat_flash_dialog()
+        self._open_headpat_flash_dialog()
 
     def _open_headpat_flash_dialog(self):
         win = tk.Toplevel(self)
@@ -1332,50 +1250,6 @@ class App(tk.Tk):
         except Exception:
             pass
 
-    # ── Linux serial port permissions ────────────────────────────────────────
-    def _check_linux_serial_perms(self):
-        udev_rule = "/etc/udev/rules.d/99-headpat.rules"
-        if os.path.exists(udev_rule):
-            return
-        import grp, subprocess
-        try:
-            in_dialout = grp.getgrnam("dialout").gr_gid in os.getgroups()
-        except KeyError:
-            in_dialout = False
-        if in_dialout:
-            return
-        if not tk.messagebox.askyesno(
-            "Serieller Port",
-            "Für den Dongle wird eine udev-Regel benötigt.\n\n"
-            "Jetzt einrichten? (Einmalig, erfordert Admin-Passwort)\n\n"
-            "Danach den Dongle neu einstecken.",
-            parent=self
-        ):
-            return
-        rule = 'SUBSYSTEM=="tty", ATTRS{idVendor}=="239a", TAG+="uaccess"\n'
-        try:
-            result = subprocess.run(
-                ["pkexec", "sh", "-c",
-                 f"tee {udev_rule} && udevadm control --reload-rules && udevadm trigger"],
-                input=rule.encode(), capture_output=True
-            )
-            if result.returncode == 0:
-                tk.messagebox.showinfo(
-                    "Fertig",
-                    "udev-Regel eingerichtet.\nBitte den Dongle neu einstecken.",
-                    parent=self
-                )
-            else:
-                tk.messagebox.showerror("Fehler", "Konnte udev-Regel nicht erstellen.", parent=self)
-        except FileNotFoundError:
-            tk.messagebox.showerror(
-                "Fehler",
-                "pkexec nicht gefunden.\nFühre manuell aus:\n"
-                f'echo \'{rule.strip()}\' | sudo tee {udev_rule}\n'
-                "sudo udevadm control --reload-rules && sudo udevadm trigger",
-                parent=self
-            )
-
     # ── Config persistence ───────────────────────────────────────────────────
     def _load_config(self):
         try:
@@ -1386,18 +1260,14 @@ class App(tk.Tk):
 
     def _save_config(self):
         cfg = {
-            "port":          self._port_var.get(),
-            "intensity":     self._int_var.get(),
-            "osc_verbose":   self._osc_verbose,
-            "auto_connect":  self._ser is not None,
-            "win_x":         self.winfo_x(),
-            "win_y":         self.winfo_y(),
-            "dongle_board":  self._board_var.get(),
-            "lang":          self._lang_var.get(),
-            "vib_mode":      self._vib_mode,
-            "hp_version":     self._hp_version     if self._hp_version     != "?" else self._cfg.get("hp_version",     "?"),
-            "dongle_version": self._dongle_version  if self._dongle_version != "?" else self._cfg.get("dongle_version", "?"),
-            "ble_address":    self._ble_address or self._cfg.get("ble_address", None),
+            "intensity":   self._int_var.get(),
+            "osc_verbose": self._osc_verbose,
+            "win_x":       self.winfo_x(),
+            "win_y":       self.winfo_y(),
+            "lang":        self._lang_var.get(),
+            "vib_mode":    self._vib_mode,
+            "hp_version":  self._hp_version if self._hp_version != "?" else self._cfg.get("hp_version", "?"),
+            "ble_address": self._ble_address or self._cfg.get("ble_address", None),
         }
         try:
             os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -1884,48 +1754,16 @@ class App(tk.Tk):
         self._console_text.see("end")
         self._console_text.config(state="disabled")
 
-        # ── Dongle-Befehle ────────────────────────────────────────────────
+        # ── BLE-Befehle ───────────────────────────────────────────────────
         tk.Frame(body, bg=BORDER, height=1).pack(fill="x")
         cmd_area = tk.Frame(body, bg=BG)
         cmd_area.pack(fill="x", padx=16, pady=10)
 
-        tk.Label(cmd_area, text="DONGLE", bg=BG, fg=FG_DIM,
-                 font=("Inter", 8, "bold")).pack(anchor="w", pady=(0, 6))
-
         CW = 78  # command button width
 
-        for pairs in [
-            [("Pairing", "pair",   ACCENT), ("List",   "list",   FG),
-             ("Uptime",  "uptime", FG),     ("Remove", "remove", YELLOW),
-             ("Reboot",  "reboot", FG_DIM)],
-        ]:
-            row = tk.Frame(cmd_area, bg=BG)
-            row.pack(fill="x", pady=(0, 6))
-            for text, cmd, color in pairs:
-                RoundedBtn(row, text, lambda c=cmd: self._send_cmd(c),
-                           w=CW, h=30, r=7, p_bg=BG,
-                           fill=BG_BTN, fg=color, hover=BG_BTN_A, hover_fg=FG,
-                           border_col=BORDER, font_spec=("Inter", 10, "bold")
-                           ).pack(side="left", padx=(0, 6))
-
-        dfu_row = tk.Frame(cmd_area, bg=BG)
-        dfu_row.pack(fill="x")
-        RoundedBtn(dfu_row, "Clear BLE", lambda: self._send_cmd("clear"),
-                   w=CW, h=30, r=7, p_bg=BG,
-                   fill=BG_BTN, fg=RED, hover=BG_BTN_A, hover_fg=RED,
-                   border_col=BORDER, font_spec=("Inter", 10, "bold")
-                   ).pack(side="left", padx=(0, 6))
-        RoundedBtn(dfu_row, "DFU", lambda: self._send_cmd("dfu"),
-                   w=CW, h=30, r=7, p_bg=BG,
-                   fill=BG_BTN, fg=FG_DIM, hover=BG_BTN_A, hover_fg=FG,
-                   border_col=BORDER, font_spec=("Inter", 10, "bold")
-                   ).pack(side="left", padx=(0, 6))
-        RoundedBtn(dfu_row, "Flash UF2…", self._pick_and_flash_uf2,
-                   w=CW, h=30, r=7, p_bg=BG,
-                   fill=BG_BTN, fg=YELLOW, hover=BG_BTN_A, hover_fg=YELLOW,
-                   border_col=BORDER, font_spec=("Inter", 10, "bold")
-                   ).pack(side="left", padx=(0, 6))
-        RoundedBtn(dfu_row, "HP Sleep", lambda: self._send_cmd("hpsleep"),
+        hp_row = tk.Frame(cmd_area, bg=BG)
+        hp_row.pack(fill="x")
+        RoundedBtn(hp_row, "HP Sleep", lambda: self._send_cmd("hpsleep"),
                    w=CW, h=30, r=7, p_bg=BG,
                    fill=BG_BTN, fg="#a78bfa", hover=BG_BTN_A, hover_fg="#c4b5fd",
                    border_col=BORDER, font_spec=("Inter", 10, "bold")
@@ -1967,27 +1805,10 @@ class App(tk.Tk):
     # ── Settings window ───────────────────────────────────────────────────────
     def _send_cmd(self, cmd: str):
         _ble_map = {"hpsleep": 0xFA, "pair": 0xFE, "unpair": 0xFD, "reqbat": 0xFC, "reqver": 0xFB}
-        if self._ble_client:
-            b = _ble_map.get(cmd)
-            if b is not None:
-                self._ble_send(bytes([b]))
-                self._log(f">>> BLE {cmd} (0x{b:02X})", "info")
-            return
-        with self._ser_lock:
-            ser = self._ser
-        if ser:
-            try:
-                ser.write(f"{cmd}\n".encode())
-                self._log(f">>> {cmd}", "info")
-            except Exception as e:
-                self._log(f"Fehler: {e}", "err")
-        else:
-            self._log("Dongle nicht verbunden", "warn")
-
-    def _on_board_change(self):
-        self._updates.pop("dongle", None)
-        self._save_config()
-        threading.Thread(target=self._check_all_releases, daemon=True).start()
+        b = _ble_map.get(cmd)
+        if b is not None:
+            self._ble_send(bytes([b]))
+            self._log(f">>> BLE {cmd} (0x{b:02X})", "info")
 
     def _open_settings(self, event=None):
         if self._settings_win and self._settings_win.winfo_exists():
@@ -2060,41 +1881,9 @@ class App(tk.Tk):
               foreground=[("focus", FG), ("!focus", FG)],
               background=[("active", BG_BTN), ("!active", BG_BTN)])
 
-        # ── Verbindung ────────────────────────────────────────────────────
+        # ── BLE Verbindung ────────────────────────────────────────────────
         sep()
-        sec(_t("sec_connection"))
-
-        ports = [p.device for p in serial.tools.list_ports.comports()] if SERIAL_OK else []
-        if ports and not self._port_var.get():
-            self._port_var.set(ports[0])
-
-        port_row = tk.Frame(body, bg=BG)
-        port_row.pack(fill="x", padx=20, pady=(0, 8))
-        RoundedBtn(port_row, _t("btn_search"), self._search_dongle_port,
-                   w=72, h=28, r=7, p_bg=BG,
-                   fill=BG_BTN, fg=FG_DIM, hover=BG_BTN_A, hover_fg=FG,
-                   border_col=BORDER, font_spec=("Inter", 10)
-                   ).pack(side="right")
-        ttk.Combobox(port_row, textvariable=self._port_var,
-                     values=ports, style="P.TCombobox").pack(side="left", fill="x",
-                                                              expand=True, padx=(0, 8))
-
-        is_connected = self._ser is not None
-        self._settings_conn_btn = RoundedBtn(body,
-                   "Disconnect" if is_connected else "Connect",
-                   self._toggle_serial,
-                   w=W, h=34, r=9, p_bg=BG,
-                   fill=RED if is_connected else ACCENT,
-                   fg="#ffffff",
-                   hover="#c0392b" if is_connected else "#5591ff",
-                   hover_fg="#ffffff",
-                   font_spec=("Inter", 11, "bold")
-                   )
-        self._settings_conn_btn.pack(padx=20, pady=(0, 14))
-
-        # ── BLE Direkt ────────────────────────────────────────────────────
-        sep()
-        sec("BLE Direkt (ohne Dongle)")
+        sec("Verbindung (BLE)")
         ble_connected = self._ble_client is not None
         ble_lbl_text  = f"Gespeichert: {self._ble_address}" if self._ble_address else "Kein Gerät gespeichert"
         tk.Label(body, text=ble_lbl_text, bg=BG, fg=FG_DIM,
@@ -2114,19 +1903,6 @@ class App(tk.Tk):
             tk.Label(body, text="! pip install bleak", bg=BG, fg=YELLOW,
                      font=("Inter", 9)).pack(padx=20, anchor="w", pady=(0, 8))
 
-        # ── Dongle-Board ──────────────────────────────────────────────────
-        sep()
-        sec(_t("sec_board"))
-        board_frame = tk.Frame(body, bg=BG)
-        board_frame.pack(fill="x", padx=20, pady=(0, 12))
-        for val, label in (("nicenano", "Pro Micro nRF52840"),
-                           ("holyiot",  "Holyiot nRF52840")):
-            tk.Radiobutton(board_frame, text=label, variable=self._board_var, value=val,
-                           bg=BG, fg=FG, selectcolor=BG_BTN,
-                           activebackground=BG, activeforeground=ACCENT,
-                           font=("Inter", 10),
-                           command=self._on_board_change).pack(anchor="w", pady=2)
-
         # ── Versionen ─────────────────────────────────────────────────────
         sep()
         sec(_t("sec_versions"))
@@ -2134,7 +1910,6 @@ class App(tk.Tk):
         ver_frame.pack(fill="x", padx=20, pady=(0, 14))
         for label, var, color in [
             ("Server",  tk.StringVar(value=SERVER_VERSION), ACCENT),
-            ("Dongle",  self._dongle_ver_var,               FG),
             ("Headpat", self._hp_ver_var,                   FG),
         ]:
             r = tk.Frame(ver_frame, bg=BG)
@@ -2247,117 +2022,6 @@ class App(tk.Tk):
         if self._settings_win and self._settings_win.winfo_exists():
             self._settings_win.destroy()
         self._settings_win = None
-        self._settings_conn_btn = None
-
-    # ── Serial ────────────────────────────────────────────────────────────────
-    def _refresh_ports(self):
-        if not SERIAL_OK:
-            return
-        ports = [p.device for p in serial.tools.list_ports.comports()]
-        if ports and not self._port_var.get():
-            self._port_var.set(ports[0])
-
-    def _auto_find_dongle_port(self):
-        ports = [p.device for p in serial.tools.list_ports.comports()]
-        for port in ports:
-            try:
-                with serial.Serial(port, BAUD, timeout=1) as s:
-                    time.sleep(0.1)
-                    s.reset_input_buffer()
-                    s.write(b"info\n")
-                    data = b""
-                    deadline = time.time() + 1.2
-                    while time.time() < deadline:
-                        if s.in_waiting:
-                            data += s.read(s.in_waiting)
-                        if b"Headpat Dongle" in data:
-                            return port
-                        time.sleep(0.05)
-            except Exception:
-                pass
-        return None
-
-    def _search_dongle_port(self):
-        with self._ser_lock:
-            ser = self._ser
-        if ser:
-            self._log(f"Dongle bereits verbunden: {ser.port}", "info")
-            self._port_var.set(ser.port)
-            return
-        self._log("Suche Headpat-Dongle…", "info")
-        def _run():
-            port = self._auto_find_dongle_port()
-            if port:
-                self.after(0, lambda: self._port_var.set(port))
-                self._log(f"Dongle gefunden: {port}", "info")
-            else:
-                self._log("Kein Headpat-Dongle gefunden", "warn")
-        threading.Thread(target=_run, daemon=True).start()
-
-    def _toggle_serial(self):
-        if self._ser:
-            self._disconnect()
-        else:
-            self._connect()
-
-    def _update_conn_btn(self):
-        btn = self._settings_conn_btn
-        if not btn or not btn.winfo_exists():
-            return
-        connected = self._ser is not None
-        btn._text = "Disconnect" if connected else "Connect"
-        btn.set_style(
-            RED    if connected else ACCENT,
-            "#ffffff",
-            "#c0392b" if connected else "#5591ff",
-            "#ffffff",
-        )
-
-    def _connect(self):
-        port = self._port_var.get()
-        if not SERIAL_OK:
-            return
-        if not port:
-            self._log("Kein Port ausgewählt", "warn")
-            return
-        self._log(f"Verbinde mit {port}…", "info")
-        threading.Thread(target=self._connect_bg, args=(port,), daemon=True).start()
-
-    def _connect_bg(self, port):
-        try:
-            ser = serial.Serial(port, BAUD, timeout=1)
-            with self._ser_lock:
-                self._ser = ser
-            self._log(f"Verbunden: {port}", "info")
-            threading.Thread(target=self._serial_loop, daemon=True).start()
-            self.after(0, self._save_config)
-            self.after(0, self._update_conn_btn)
-        except Exception as e:
-            self._log(f"Verbindungsfehler: {e}", "err")
-
-    def _disconnect(self):
-        with self._ser_lock:
-            ser, self._ser = self._ser, None
-        if ser:
-            try: ser.write(b"m:00\n")
-            except: pass
-            try: ser.close()
-            except: pass
-        self._ble_connected = False
-        self._set_dot(self._hp_dot, RED)
-        self._bat_text = "🔋 ?%"; self._bat_fg = FG_DIM
-        self._bat_lbl.config(text=self._bat_text, fg=self._bat_fg)
-        # Versionen zurücksetzen, damit Update-Check nach Reconnect wieder korrekt arbeitet
-        self._hp_version     = "?"
-        self._dongle_version = "?"
-        self._hp_ver_var.set("?")
-        self._dongle_ver_var.set("?")
-        self._updates.pop("headpat", None)
-        if self._pending_flash != "dongle":
-            self._updates.pop("dongle", None)
-        self._log("Verbindung getrennt", "warn")
-        self._save_config()
-        self.after(0, self._update_conn_btn)
 
     # ── BLE Direct ───────────────────────────────────────────────────────────
     def _ble_connect(self):
@@ -2469,95 +2133,10 @@ class App(tk.Tk):
         col = fg or (RED if connected else GREEN)
         btn.set_style(col, "#ffffff", col, "#ffffff")
 
-    def _serial_loop(self):
-        last_info = 0.0
-        last_bat  = 0.0
-        with self._ser_lock:
-            ser = self._ser
-        if ser:
-            try: ser.write(b"info\n")
-            except: pass
-
-        while True:
-            with self._ser_lock:
-                ser = self._ser
-            if ser is None:
-                break
-            try:
-                now = time.time()
-                if now - last_info >= INFO_INTERVAL:
-                    ser.write(b"info\n")
-                    last_info = now
-                if self._ble_connected and now - last_bat >= BAT_INTERVAL:
-                    ser.write(b"reqbat\n")
-                    last_bat = now
-
-                line = ser.readline().decode("utf-8", errors="ignore").strip()
-                if not line:
-                    continue
-
-                self._log(line, "serial")
-
-                m = re.search(r'\[BAT\]\s*(\d+)', line)
-                if m:
-                    self._q.put(("bat", int(m.group(1))))
-                    continue
-
-                m = re.search(r'\[VER\]\s*(Headpat\s+v[\d.]+)', line)
-                if m:
-                    self._q.put(("hp_ver", m.group(1)))
-                    continue
-
-                m = re.search(r'Headpat\s+Dongle\s+(v[\d.]+)', line)
-                if m:
-                    self._q.put(("dongle_ver", m.group(1)))
-                    continue
-
-                if re.search(r'\[BLE\]\s*Connected:', line):
-                    self._q.put(("hp_ble", True))
-                    try:
-                        ser.write(b"reqbat\n")
-                        ser.write(b"reqver\n")
-                    except: pass
-                    last_bat = now
-                    continue
-
-                if re.search(r'\[BLE\]\s*Disconnected', line):
-                    self._q.put(("hp_ble", False))
-                    continue
-
-                if line.startswith("Connected:"):
-                    val_str = line.split(":", 1)[1].strip()
-                    if "/" in val_str:
-                        up = val_str.split("/")[0].strip() != "0"
-                    else:
-                        up = val_str.upper() == "YES"
-                    self._q.put(("hp_ble", up))
-                    if up and not self._ble_connected:
-                        try:
-                            ser.write(b"reqbat\n")
-                            ser.write(b"reqver\n")
-                        except: pass
-                        last_bat = now
-
-            except Exception:
-                self._q.put(("serial_lost", None))
-                break
-
     def _send_motor(self, left_n: int, right_n: int):
         left_n  = max(0, min(15, left_n))
         right_n = max(0, min(15, right_n))
-        if self._ble_client:
-            self._ble_send(bytes([left_n << 4 | right_n]))
-            return
-        with self._ser_lock:
-            ser = self._ser
-        if ser:
-            try:
-                if left_n == 0 and right_n == 0:
-                    ser.reset_output_buffer()
-                ser.write(f"m:{(left_n << 4 | right_n):02X}\n".encode())
-            except: pass
+        self._ble_send(bytes([left_n << 4 | right_n]))
 
     def _pat_left(self):
         n = int(15 * self._intensity)
@@ -2622,10 +2201,6 @@ class App(tk.Tk):
         if not _MOTOR_RE.search(param):
             return
 
-        with self._ser_lock:
-            if self._ser is None:
-                return
-
         val = float(args[0]) if args else 0.0
         stop_at = 0.5 if self._vib_mode == 1 else 0.1
         if val < stop_at:
@@ -2672,11 +2247,6 @@ class App(tk.Tk):
                         self._cfg["hp_version"] = val
                         self._hp_ver_var.set(val)
                         self._recheck_firmware_updates()
-                    elif tag == "dongle_ver":
-                        self._dongle_version = val
-                        self._cfg["dongle_version"] = val
-                        self._dongle_ver_var.set(val)
-                        self._recheck_firmware_updates()
                     elif tag == "ble_direct":
                         self._ble_connected = val
                         self._set_dot(self._hp_dot, GREEN if val else RED)
@@ -2685,11 +2255,9 @@ class App(tk.Tk):
                             self._bat_lbl.config(text=self._bat_text, fg=self._bat_fg)
                             self._hp_version = "?"
                             self._hp_ver_var.set("?")
-                    elif tag == "serial_lost":
-                        self._disconnect()
                     elif tag == "update_found":
                         key, ver = val
-                        names = {"headpat": "Headpat", "dongle": "Dongle", "server": "Server"}
+                        names = {"headpat": "Headpat", "server": "Server"}
                         self._log(f"Update verfügbar: {names.get(key, key)} {ver}", "warn")
                         self._set_badge_active(True)
                     elif tag == "nrf52_drive":
