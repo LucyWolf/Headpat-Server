@@ -45,6 +45,13 @@ try:
 except Exception:
     PIL_OK = False
 
+try:
+    import asyncio
+    from bleak import BleakClient, BleakScanner
+    BLE_OK = True
+except Exception:
+    BLE_OK = False
+
 # ── Crash logger ──────────────────────────────────────────────────────────────
 def _setup_crash_log():
     try:
@@ -122,7 +129,12 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.8.4"
+SERVER_VERSION  = "v3.8.5"
+
+# ── BLE Direct ───────────────────────────────────────────────────────────────
+NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+NUS_TX  = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+HP_NAME = "Headpat"
 GITHUB_OWNER    = "LucyWolf"
 HEADPAT_REPO    = "Headpat"
 DONGLE_REPO     = "dongel_NRF"
@@ -617,6 +629,10 @@ class App(tk.Tk):
         self._motor_left_target  = 0
         self._motor_right_target = 0
         self._motor_last_sent    = (-1, -1)
+        self._ble_client         = None
+        self._ble_loop           = None
+        self._ble_address        = self._cfg.get("ble_address", None)
+        self._ble_conn_btn       = None
         self._drag_x        = 0
         self._drag_y        = 0
         self._logo_img      = None
@@ -1381,6 +1397,7 @@ class App(tk.Tk):
             "vib_mode":      self._vib_mode,
             "hp_version":     self._hp_version     if self._hp_version     != "?" else self._cfg.get("hp_version",     "?"),
             "dongle_version": self._dongle_version  if self._dongle_version != "?" else self._cfg.get("dongle_version", "?"),
+            "ble_address":    self._ble_address or self._cfg.get("ble_address", None),
         }
         try:
             os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -1949,6 +1966,13 @@ class App(tk.Tk):
 
     # ── Settings window ───────────────────────────────────────────────────────
     def _send_cmd(self, cmd: str):
+        _ble_map = {"hpsleep": 0xFA, "pair": 0xFE, "unpair": 0xFD, "reqbat": 0xFC, "reqver": 0xFB}
+        if self._ble_client:
+            b = _ble_map.get(cmd)
+            if b is not None:
+                self._ble_send(bytes([b]))
+                self._log(f">>> BLE {cmd} (0x{b:02X})", "info")
+            return
         with self._ser_lock:
             ser = self._ser
         if ser:
@@ -2067,6 +2091,28 @@ class App(tk.Tk):
                    font_spec=("Inter", 11, "bold")
                    )
         self._settings_conn_btn.pack(padx=20, pady=(0, 14))
+
+        # ── BLE Direkt ────────────────────────────────────────────────────
+        sep()
+        sec("BLE Direkt (ohne Dongle)")
+        ble_connected = self._ble_client is not None
+        ble_lbl_text  = f"Gespeichert: {self._ble_address}" if self._ble_address else "Kein Gerät gespeichert"
+        tk.Label(body, text=ble_lbl_text, bg=BG, fg=FG_DIM,
+                 font=("Inter", 9)).pack(padx=20, anchor="w", pady=(0, 6))
+        self._ble_conn_btn = RoundedBtn(body,
+                   "BLE trennen" if ble_connected else "BLE verbinden",
+                   self._ble_connect,
+                   w=W, h=34, r=9, p_bg=BG,
+                   fill=RED if ble_connected else GREEN,
+                   fg="#ffffff",
+                   hover="#c0392b" if ble_connected else "#27ae60",
+                   hover_fg="#ffffff",
+                   font_spec=("Inter", 11, "bold")
+                   )
+        self._ble_conn_btn.pack(padx=20, pady=(0, 6))
+        if not BLE_OK:
+            tk.Label(body, text="! pip install bleak", bg=BG, fg=YELLOW,
+                     font=("Inter", 9)).pack(padx=20, anchor="w", pady=(0, 8))
 
         # ── Dongle-Board ──────────────────────────────────────────────────
         sep()
@@ -2313,6 +2359,116 @@ class App(tk.Tk):
         self._save_config()
         self.after(0, self._update_conn_btn)
 
+    # ── BLE Direct ───────────────────────────────────────────────────────────
+    def _ble_connect(self):
+        if not BLE_OK:
+            tk.messagebox.showerror("BLE nicht verfügbar",
+                "bleak nicht installiert.\nBitte: pip install bleak", parent=self)
+            return
+        if self._ble_client:
+            self._ble_disconnect()
+            return
+        self._log("BLE: Suche nach Headpat…", "info")
+        self._update_ble_btn("Suche…", FG_DIM, False)
+        t = threading.Thread(target=self._ble_worker, daemon=True)
+        t.start()
+
+    def _ble_disconnect(self):
+        client = self._ble_client
+        loop   = self._ble_loop
+        if client and loop:
+            asyncio.run_coroutine_threadsafe(client.disconnect(), loop)
+        else:
+            self._ble_client = None
+            self._update_ble_btn()
+
+    def _ble_send(self, data: bytes):
+        client = self._ble_client
+        loop   = self._ble_loop
+        if client and loop and client.is_connected:
+            asyncio.run_coroutine_threadsafe(
+                client.write_gatt_char(NUS_RX, data, response=False), loop
+            )
+
+    def _ble_worker(self):
+        self._ble_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._ble_loop)
+        try:
+            self._ble_loop.run_until_complete(self._ble_run())
+        except Exception as e:
+            self._log(f"BLE Worker Fehler: {e}", "err")
+        finally:
+            self._ble_loop.close()
+            self._ble_loop = None
+            self._ble_client = None
+            self._q.put(("ble_direct", False))
+
+    async def _ble_run(self):
+        device = None
+        if self._ble_address:
+            self._log(f"BLE: Verbinde mit {self._ble_address}…", "info")
+            device = await BleakScanner.find_device_by_address(self._ble_address, timeout=8)
+        if device is None:
+            self._log(f"BLE: Scanne nach '{HP_NAME}'…", "info")
+            device = await BleakScanner.find_device_by_name(HP_NAME, timeout=12)
+        if device is None:
+            self._log("BLE: Kein Headpat gefunden — Pairing-Modus aktivieren (3s Knopf halten)", "warn")
+            self.after(0, self._update_ble_btn)
+            return
+
+        self._ble_address = device.address
+        self._cfg["ble_address"] = device.address
+        self._log(f"BLE: Gefunden — {device.name} [{device.address}]", "info")
+
+        def _on_notify(sender, data: bytearray):
+            text = data.decode("utf-8", errors="replace")
+            for line in text.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                self._log(line, "serial")
+                m = re.search(r'\[BAT\]\s*(\d+)', line)
+                if m:
+                    self._q.put(("bat", int(m.group(1)))); continue
+                m = re.search(r'\[VER\]\s*(Headpat\s+v[\d.]+)', line)
+                if m:
+                    self._q.put(("hp_ver", m.group(1))); continue
+
+        try:
+            async with BleakClient(device) as client:
+                self._ble_client = client
+                self._q.put(("ble_direct", True))
+                self.after(0, self._update_ble_btn)
+                self._log("BLE: Verbunden!", "info")
+                await client.start_notify(NUS_TX, _on_notify)
+                # Request version + battery
+                await client.write_gatt_char(NUS_RX, bytes([0xFB]), response=False)
+                await asyncio.sleep(0.5)
+                await client.write_gatt_char(NUS_RX, bytes([0xFC]), response=False)
+                # Keep alive + periodic battery
+                last_bat = asyncio.get_event_loop().time()
+                while client.is_connected:
+                    await asyncio.sleep(1)
+                    if asyncio.get_event_loop().time() - last_bat > 30:
+                        await client.write_gatt_char(NUS_RX, bytes([0xFC]), response=False)
+                        last_bat = asyncio.get_event_loop().time()
+        except Exception as e:
+            self._log(f"BLE: Verbindungsfehler — {e}", "err")
+        finally:
+            self._ble_client = None
+            self._q.put(("ble_direct", False))
+            self.after(0, self._update_ble_btn)
+            self._log("BLE: Verbindung beendet", "warn")
+
+    def _update_ble_btn(self, text=None, fg=None, enabled=True):
+        btn = self._ble_conn_btn
+        if not btn or not btn.winfo_exists():
+            return
+        connected = self._ble_client is not None
+        btn._text = text or ("BLE trennen" if connected else "BLE verbinden")
+        col = fg or (RED if connected else GREEN)
+        btn.set_style(col, "#ffffff", col, "#ffffff")
+
     def _serial_loop(self):
         last_info = 0.0
         last_bat  = 0.0
@@ -2391,6 +2547,9 @@ class App(tk.Tk):
     def _send_motor(self, left_n: int, right_n: int):
         left_n  = max(0, min(15, left_n))
         right_n = max(0, min(15, right_n))
+        if self._ble_client:
+            self._ble_send(bytes([left_n << 4 | right_n]))
+            return
         with self._ser_lock:
             ser = self._ser
         if ser:
@@ -2518,6 +2677,14 @@ class App(tk.Tk):
                         self._cfg["dongle_version"] = val
                         self._dongle_ver_var.set(val)
                         self._recheck_firmware_updates()
+                    elif tag == "ble_direct":
+                        self._ble_connected = val
+                        self._set_dot(self._hp_dot, GREEN if val else RED)
+                        if not val:
+                            self._bat_text = "🔋 ?%"; self._bat_fg = FG_DIM
+                            self._bat_lbl.config(text=self._bat_text, fg=self._bat_fg)
+                            self._hp_version = "?"
+                            self._hp_ver_var.set("?")
                     elif tag == "serial_lost":
                         self._disconnect()
                     elif tag == "update_found":
