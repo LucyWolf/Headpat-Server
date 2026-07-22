@@ -129,7 +129,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.2"
+SERVER_VERSION  = "v3.9.3"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -630,6 +630,13 @@ class App(tk.Tk):
         self._ble_loop           = None
         self._ble_address        = self._cfg.get("ble_address", None)
         self._ble_conn_btn       = None
+        self._ble_devices        = self._cfg.get("ble_devices", [])
+        if not self._ble_devices and self._ble_address:
+            self._ble_devices = [{"address": self._ble_address, "nickname": "Headpat"}]
+        self._ble_device_var     = tk.StringVar()
+        self._ble_device_combo   = None
+        if self._ble_devices:
+            self._ble_device_var.set(self._ble_device_label(self._ble_devices[0]))
         self._drag_x        = 0
         self._drag_y        = 0
         self._logo_img      = None
@@ -1268,6 +1275,7 @@ class App(tk.Tk):
             "vib_mode":    self._vib_mode,
             "hp_version":  self._hp_version if self._hp_version != "?" else self._cfg.get("hp_version", "?"),
             "ble_address": self._ble_address or self._cfg.get("ble_address", None),
+            "ble_devices": self._ble_devices,
         }
         try:
             os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -1880,10 +1888,33 @@ class App(tk.Tk):
         # ── BLE Verbindung ────────────────────────────────────────────────
         sep()
         sec("Verbindung (BLE)")
+
+        # Gerät-Zeile: Dropdown + Hinzufügen + Entfernen
+        dev_row = tk.Frame(body, bg=BG)
+        dev_row.pack(fill="x", padx=20, pady=(0, 6))
+        labels = [self._ble_device_label(d) for d in self._ble_devices]
+        if self._ble_devices:
+            self._ble_device_var.set(labels[0])
+        self._ble_device_combo = ttk.Combobox(dev_row,
+            textvariable=self._ble_device_var,
+            values=labels,
+            style="P.TCombobox",
+            state="readonly",
+            width=24)
+        self._ble_device_combo.pack(side="left", fill="x", expand=True)
+        self._ble_device_combo.bind("<<ComboboxSelected>>", self._ble_combo_changed)
+        RoundedBtn(dev_row, "+", self._ble_scan_dialog,
+                   w=28, h=28, r=7, p_bg=BG,
+                   fill=BG_BTN, fg=GREEN, hover=BG_BTN_A, hover_fg=GREEN,
+                   border_col=BORDER, font_spec=("Inter", 13, "bold")
+                   ).pack(side="left", padx=(6, 0))
+        RoundedBtn(dev_row, "−", self._ble_remove_device,
+                   w=28, h=28, r=7, p_bg=BG,
+                   fill=BG_BTN, fg=RED, hover=BG_BTN_A, hover_fg=RED,
+                   border_col=BORDER, font_spec=("Inter", 13, "bold")
+                   ).pack(side="left", padx=(4, 0))
+
         ble_connected = self._ble_client is not None
-        ble_lbl_text  = f"Gespeichert: {self._ble_address}" if self._ble_address else "Kein Gerät gespeichert"
-        tk.Label(body, text=ble_lbl_text, bg=BG, fg=FG_DIM,
-                 font=("Inter", 9)).pack(padx=20, anchor="w", pady=(0, 6))
         self._ble_conn_btn = RoundedBtn(body,
                    "BLE trennen" if ble_connected else "BLE verbinden",
                    self._ble_connect,
@@ -2020,6 +2051,160 @@ class App(tk.Tk):
         self._settings_win = None
 
     # ── BLE Direct ───────────────────────────────────────────────────────────
+    def _ble_device_label(self, d):
+        return f"{d['nickname']}  ({d['address']})"
+
+    def _ble_combo_changed(self, _event=None):
+        lbl = self._ble_device_var.get()
+        for d in self._ble_devices:
+            if self._ble_device_label(d) == lbl:
+                self._ble_address = d["address"]
+                self._save_config()
+                break
+
+    def _ble_update_combo(self):
+        if not self._ble_device_combo or not self._ble_device_combo.winfo_exists():
+            return
+        labels = [self._ble_device_label(d) for d in self._ble_devices]
+        self._ble_device_combo["values"] = labels
+        if self._ble_address:
+            for d in self._ble_devices:
+                if d["address"] == self._ble_address:
+                    self._ble_device_var.set(self._ble_device_label(d))
+                    return
+        if labels:
+            self._ble_device_var.set(labels[0])
+        else:
+            self._ble_device_var.set("")
+
+    def _ble_remove_device(self):
+        lbl = self._ble_device_var.get()
+        self._ble_devices = [d for d in self._ble_devices
+                             if self._ble_device_label(d) != lbl]
+        if self._ble_devices:
+            self._ble_address = self._ble_devices[0]["address"]
+        else:
+            self._ble_address = None
+        self._ble_update_combo()
+        self._save_config()
+
+    def _ble_scan_dialog(self):
+        if not BLE_OK:
+            tk.messagebox.showerror("BLE nicht verfügbar",
+                "bleak nicht installiert.", parent=self)
+            return
+
+        dlg = tk.Toplevel(self)
+        dlg.title("Headpat suchen")
+        dlg.configure(bg=BG)
+        dlg.resizable(False, False)
+        dlg.grab_set()
+
+        tk.Label(dlg, text="Headpat-Geräte in der Nähe:", bg=BG, fg=FG,
+                 font=("Inter", 10, "bold")).pack(padx=16, pady=(14, 6), anchor="w")
+
+        frame = tk.Frame(dlg, bg=BORDER)
+        frame.pack(padx=16, fill="both", expand=True)
+        lb = tk.Listbox(frame, bg=BG_BTN, fg=FG, selectbackground=ACCENT,
+                        selectforeground="#000", font=("Inter", 10),
+                        width=44, height=6, bd=0, highlightthickness=0)
+        lb.pack(padx=1, pady=1, fill="both", expand=True)
+
+        status_var = tk.StringVar(value="Scanne… (6s)")
+        tk.Label(dlg, textvariable=status_var, bg=BG, fg=FG_DIM,
+                 font=("Inter", 9)).pack(padx=16, anchor="w", pady=(4, 0))
+
+        nick_frame = tk.Frame(dlg, bg=BG)
+        nick_frame.pack(fill="x", padx=16, pady=(8, 0))
+        tk.Label(nick_frame, text="Spitzname:", bg=BG, fg=FG,
+                 font=("Inter", 10)).pack(side="left")
+        nick_var = tk.StringVar(value="Headpat")
+        nick_entry = tk.Entry(nick_frame, textvariable=nick_var,
+                              bg=BG_BTN, fg=FG, insertbackground=FG,
+                              relief="flat", font=("Inter", 10), width=18)
+        nick_entry.pack(side="left", padx=(8, 0))
+
+        found = []  # list of BLEDevice
+
+        def _on_select(_e=None):
+            idx = lb.curselection()
+            if not idx:
+                return
+            dev = found[idx[0]]
+            nick_var.set(dev.name or "Headpat")
+
+        lb.bind("<<ListboxSelect>>", _on_select)
+
+        def _save():
+            idx = lb.curselection()
+            if not idx:
+                tk.messagebox.showwarning("Kein Gerät", "Bitte ein Gerät auswählen.", parent=dlg)
+                return
+            dev = found[idx[0]]
+            nick = nick_var.get().strip() or dev.name or "Headpat"
+            for d in self._ble_devices:
+                if d["address"] == dev.address:
+                    d["nickname"] = nick
+                    break
+            else:
+                self._ble_devices.append({"address": dev.address, "nickname": nick})
+            self._ble_address = dev.address
+            self._ble_update_combo()
+            self._save_config()
+            dlg.destroy()
+
+        btn_row = tk.Frame(dlg, bg=BG)
+        btn_row.pack(pady=12)
+        RoundedBtn(btn_row, "Abbrechen", dlg.destroy,
+                   w=100, h=32, r=8, p_bg=BG,
+                   fill=BG_BTN, fg=FG, hover=BG_BTN_A, hover_fg=FG,
+                   border_col=BORDER, font_spec=("Inter", 10)
+                   ).pack(side="left", padx=(0, 8))
+        RoundedBtn(btn_row, "Speichern", _save,
+                   w=100, h=32, r=8, p_bg=BG,
+                   fill=GREEN, fg="#ffffff", hover="#27ae60", hover_fg="#ffffff",
+                   font_spec=("Inter", 10, "bold")
+                   ).pack(side="left")
+
+        dlg.update_idletasks()
+        px = self.winfo_x() + (self.winfo_width()  - dlg.winfo_width())  // 2
+        py = self.winfo_y() + (self.winfo_height() - dlg.winfo_height()) // 2
+        dlg.geometry(f"+{px}+{py}")
+
+        def _scan():
+            import asyncio as _aio
+            async def _do():
+                devices = await BleakScanner.discover(timeout=6)
+                hp = [d for d in devices if d.name and "Headpat" in d.name]
+                if not hp:
+                    hp = devices  # zeige alle wenn nichts gefunden
+                return hp
+
+            loop = _aio.new_event_loop()
+            try:
+                result = loop.run_until_complete(_do())
+            except Exception as e:
+                result = []
+                dlg.after(0, lambda: status_var.set(f"Fehler: {e}"))
+            finally:
+                loop.close()
+
+            def _fill():
+                lb.delete(0, "end")
+                for d in result:
+                    found.append(d)
+                    rssi = getattr(d, "rssi", "?")
+                    lb.insert("end", f"{d.name or '?'}  {d.address}  ({rssi} dBm)")
+                if result:
+                    lb.selection_set(0)
+                    _on_select()
+                    status_var.set(f"{len(result)} Gerät(e) gefunden")
+                else:
+                    status_var.set("Kein Headpat gefunden — Pairing-Modus?")
+            dlg.after(0, _fill)
+
+        threading.Thread(target=_scan, daemon=True).start()
+
     def _ble_connect(self):
         if not BLE_OK:
             tk.messagebox.showerror("BLE nicht verfügbar",
