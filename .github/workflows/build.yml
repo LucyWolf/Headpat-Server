@@ -24,7 +24,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install pyserial python-osc pillow pyinstaller certifi
+        run: pip install pyserial python-osc pillow pyinstaller certifi bleak
 
       - name: Inject version from tag
         run: |
@@ -38,7 +38,7 @@ jobs:
             Set-Content installer.iss
 
       - name: Build exe with PyInstaller
-        run: pyinstaller --onedir --windowed --icon=icon.ico --add-data "icon.png:." --collect-all certifi --name="Headpat Server" heatpett_server.py
+        run: pyinstaller --onedir --windowed --icon=icon.ico --add-data "icon.png:." --collect-all certifi --collect-all bleak --name="Headpat Server" heatpett_server.py
 
       - name: Install Inno Setup
         run: choco install innosetup -y
@@ -75,7 +75,7 @@ jobs:
         run: sudo apt-get install -y python3-tk libfuse2
 
       - name: Install Python dependencies
-        run: pip install pyserial python-osc pillow pyinstaller certifi
+        run: pip install pyserial python-osc pillow pyinstaller certifi bleak
 
       - name: Inject version from tag
         run: |
@@ -84,7 +84,7 @@ jobs:
           sed -i "s/SERVER_VERSION\s*=\s*\"[^\"]*\"/SERVER_VERSION = \"$VERSION\"/" heatpett_server.py
 
       - name: Build with PyInstaller
-        run: pyinstaller --onedir --windowed --name="HeadpatServer" --icon=icon.png --add-data "icon.png:." --collect-all certifi heatpett_server.py
+        run: pyinstaller --onedir --windowed --name="HeadpatServer" --icon=icon.png --add-data "icon.png:." --collect-all certifi --collect-all bleak heatpett_server.py
 
       - name: Create AppDir
         run: |
