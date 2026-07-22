@@ -129,7 +129,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.0"
+SERVER_VERSION  = "v3.9.1"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -1736,6 +1736,7 @@ class App(tk.Tk):
         self._console_text.tag_config("warn",   foreground=YELLOW)
         self._console_text.tag_config("err",    foreground=RED)
         self._console_text.tag_config("serial", foreground="#5a8a6a")
+        self._console_text.tag_config("ble",    foreground="#5a8a6a")
 
         vsb = tk.Scrollbar(txt_frame, orient="vertical",
                            command=self._console_text.yview,
@@ -1753,21 +1754,6 @@ class App(tk.Tk):
             self._console_text.insert("end", f"{ts}  {text}\n", tag)
         self._console_text.see("end")
         self._console_text.config(state="disabled")
-
-        # ── BLE-Befehle ───────────────────────────────────────────────────
-        tk.Frame(body, bg=BORDER, height=1).pack(fill="x")
-        cmd_area = tk.Frame(body, bg=BG)
-        cmd_area.pack(fill="x", padx=16, pady=10)
-
-        CW = 78  # command button width
-
-        hp_row = tk.Frame(cmd_area, bg=BG)
-        hp_row.pack(fill="x")
-        RoundedBtn(hp_row, "HP Sleep", lambda: self._send_cmd("hpsleep"),
-                   w=CW, h=30, r=7, p_bg=BG,
-                   fill=BG_BTN, fg="#a78bfa", hover=BG_BTN_A, hover_fg="#c4b5fd",
-                   border_col=BORDER, font_spec=("Inter", 10, "bold")
-                   ).pack(side="left")
 
         # ── Position & Anzeige ────────────────────────────────────────────
         win.update_idletasks()
