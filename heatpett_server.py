@@ -129,7 +129,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.4"
+SERVER_VERSION  = "v3.9.5"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -2384,20 +2384,25 @@ class App(tk.Tk):
 
         val = float(args[0]) if args else 0.0
         stop_at = 0.5 if self._vib_mode == 1 else 0.1
+        is_left  = 'left'  in param
+        is_right = 'right' in param
         if val < stop_at:
-            self._motor_left_target  = 0
-            self._motor_right_target = 0
+            if is_left:
+                self._motor_left_target  = 0
+            elif is_right:
+                self._motor_right_target = 0
+            else:
+                self._motor_left_target  = 0
+                self._motor_right_target = 0
             return
         if self._vib_mode == 1:
             nibble = max(1, int(15 * self._intensity))
         else:
             nibble = max(0, min(15, int(val * 15 * self._intensity)))
         self._last_motor_nz = time.time()
-        if   'left'  in param:
+        if   is_left:
             self._motor_left_target  = nibble
-            self._motor_right_target = 0
-        elif 'right' in param:
-            self._motor_left_target  = 0
+        elif is_right:
             self._motor_right_target = nibble
         else:
             self._motor_left_target  = nibble
