@@ -1,3 +1,5 @@
+🇬🇧 English | [🇩🇪 Deutsch](README.de.md)
+
 # Headpat Server
 
 Windows/Linux app that bridges VRChat OSC contact data to the Headpat haptic device via Bluetooth.
@@ -17,6 +19,7 @@ VRChat  →  OSC  →  Headpat Server  →  BLE  →  Headpat
 
 - Direct BLE connection to the Headpat device (regular Bluetooth stick, no Dongle needed)
 - Auto-reconnect to last known device on startup
+- Save multiple Headpat devices with custom nicknames
 - Intensity slider (saved between sessions)
 - Sleep button to put the Headpat device to sleep
 - Log console for status and debug output
@@ -56,8 +59,8 @@ Add contact receivers to your avatar with parameter names containing `headpat` o
 ## Bluetooth pairing
 
 1. Put the Headpat device into pairing mode (hold button 3s then release)
-2. Open the server and click **Verbinden** in the connection area
-3. The server scans for a device named "Headpat" and connects automatically
+2. Open the server and click **+** in the connection area
+3. The server scans for nearby Headpat devices — select yours and set a nickname
 4. The address is saved — next launch reconnects automatically
 
 ## Firmware updates
