@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Headpat Server v3.9.0 — VRChat OSC → Headpat via BLE-Direkt"""
+"""Headpat Server v3.9.5 — VRChat OSC → Headpat via BLE-Direkt"""
 
 import tkinter as tk
-from tkinter import ttk, filedialog as tk_filedialog
+from tkinter import ttk, filedialog as tk_filedialog, messagebox
 import threading
 import queue
 import collections
@@ -95,7 +95,7 @@ def _ensure_single_instance():
     if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
         _r = tk.Tk()
         _r.withdraw()
-        tk.messagebox.showwarning(
+        messagebox.showwarning(
             "Headpat Server läuft bereits",
             "Der Server ist schon gestartet.\nBitte das vorhandene Fenster in der Taskleiste suchen.",
             parent=None
@@ -129,7 +129,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.5"
+SERVER_VERSION  = "v3.9.6"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -957,7 +957,7 @@ class App(tk.Tk):
             shutil.copyfile(entry["path"], dest)
             self._log(f"Headpat {entry['tag']} geflasht — Gerät bootet neu", "info")
         except Exception as e:
-            tk.messagebox.showerror("Flash-Fehler", str(e), parent=self)
+            messagebox.showerror("Flash-Fehler", str(e), parent=self)
 
     def _open_update_dialog(self):
         win = tk.Toplevel(self)
@@ -1193,7 +1193,7 @@ class App(tk.Tk):
     def _server_update(self, key):
         entry = self._updates.get(key)
         if not entry or not entry.get("path"):
-            tk.messagebox.showinfo("Bitte warten", "Download läuft noch…", parent=self)
+            messagebox.showinfo("Bitte warten", "Download läuft noch…", parent=self)
             return
         import subprocess
         src = entry["path"]
@@ -1203,7 +1203,7 @@ class App(tk.Tk):
                 ctypes.windll.shell32.ShellExecuteW(None, "open", src, None, None, 1)
                 self.after(1500, lambda: os._exit(0))
             except Exception as e:
-                tk.messagebox.showerror("Update-Fehler", str(e), parent=self)
+                messagebox.showerror("Update-Fehler", str(e), parent=self)
                 return
         else:
             os.chmod(src, 0o755)
@@ -2090,7 +2090,7 @@ class App(tk.Tk):
 
     def _ble_scan_dialog(self):
         if not BLE_OK:
-            tk.messagebox.showerror("BLE nicht verfügbar",
+            messagebox.showerror("BLE nicht verfügbar",
                 "bleak nicht installiert.", parent=self)
             return
 
@@ -2138,7 +2138,7 @@ class App(tk.Tk):
         def _save():
             idx = lb.curselection()
             if not idx:
-                tk.messagebox.showwarning("Kein Gerät", "Bitte ein Gerät auswählen.", parent=dlg)
+                messagebox.showwarning("Kein Gerät", "Bitte ein Gerät auswählen.", parent=dlg)
                 return
             dev = found[idx[0]]
             nick = nick_var.get().strip() or dev.name or "Headpat"
@@ -2207,7 +2207,7 @@ class App(tk.Tk):
 
     def _ble_connect(self):
         if not BLE_OK:
-            tk.messagebox.showerror("BLE nicht verfügbar",
+            messagebox.showerror("BLE nicht verfügbar",
                 "bleak nicht installiert.\nBitte: pip install bleak", parent=self)
             return
         if self._ble_client:
@@ -2291,12 +2291,12 @@ class App(tk.Tk):
                 await asyncio.sleep(0.5)
                 await client.write_gatt_char(NUS_RX, bytes([0xFC]), response=False)
                 # Keep alive + periodic battery
-                last_bat = asyncio.get_event_loop().time()
+                last_bat = asyncio.get_running_loop().time()
                 while client.is_connected:
                     await asyncio.sleep(1)
-                    if asyncio.get_event_loop().time() - last_bat > 30:
+                    if asyncio.get_running_loop().time() - last_bat > 30:
                         await client.write_gatt_char(NUS_RX, bytes([0xFC]), response=False)
-                        last_bat = asyncio.get_event_loop().time()
+                        last_bat = asyncio.get_running_loop().time()
         except Exception as e:
             self._log(f"BLE: Verbindungsfehler — {e}", "err")
         finally:
@@ -2315,7 +2315,7 @@ class App(tk.Tk):
         btn.set_style(col, "#ffffff", col, "#ffffff")
 
     def _send_motor(self, left_n: int, right_n: int):
-        left_n  = max(0, min(15, left_n))
+        left_n  = max(0, min(14, left_n))
         right_n = max(0, min(15, right_n))
         self._ble_send(bytes([left_n << 4 | right_n]))
 
