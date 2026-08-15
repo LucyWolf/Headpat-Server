@@ -17,13 +17,20 @@ echo "== Headpat Server Installer =="
 # Nur anfassen wenn wirklich was fehlt, damit ein Update-Lauf (aus der
 # laufenden App heraus gestartet) i.d.R. ohne sudo-Passwortabfrage durchlaeuft.
 if ! python3 -c "import tkinter" >/dev/null 2>&1 || ! python3 -c "import venv" >/dev/null 2>&1; then
+    echo "Installiere fehlende System-Pakete…"
     if command -v apt-get >/dev/null 2>&1; then
-        echo "Installiere fehlende System-Pakete (python3-venv, python3-tk)…"
         sudo apt-get update -qq
         sudo apt-get install -y python3-venv python3-tk
+    elif command -v dnf >/dev/null 2>&1; then
+        sudo dnf install -y python3-tkinter
+    elif command -v pacman >/dev/null 2>&1; then
+        sudo pacman -S --needed --noconfirm tk
+    elif command -v zypper >/dev/null 2>&1; then
+        sudo zypper install -y python3-tk
     else
-        echo "FEHLER: tkinter und/oder venv fehlen, apt-get ist nicht verfuegbar." >&2
-        echo "Bitte python3-venv und python3-tk manuell ueber deinen Paketmanager installieren." >&2
+        echo "FEHLER: tkinter und/oder venv fehlen, kein unterstuetzter Paketmanager" >&2
+        echo "(apt/dnf/pacman/zypper) gefunden. Bitte manuell ein Paket installieren," >&2
+        echo "das tkinter fuer Python 3 bereitstellt (venv ist meist schon dabei)." >&2
         exit 1
     fi
 fi

@@ -33,7 +33,13 @@ VRChat  →  OSC  →  Headpat Server  →  BLE  →  Headpat
 Download `HeadpatServer-Setup.exe` from [Releases](../../releases) and run it. Installs to `C:\Program Files\Headpat Server`.
 
 ### Linux
-Download `headpat-server-linux.tar.gz` from [Releases](../../releases), extract it and run the installer. Sets up its own venv under `~/.local/share/headpat-server`, installs Python dependencies, and adds a menu entry.
+One-liner (downloads the latest release and installs it):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/LucyWolf/Headpat-Server/main/bootstrap.sh | bash
+```
+
+Or manually: download `headpat-server-linux.tar.gz` from [Releases](../../releases), extract it and run the installer.
 
 ```bash
 mkdir headpat-server-linux && tar -xzf headpat-server-linux.tar.gz -C headpat-server-linux
@@ -41,7 +47,7 @@ cd headpat-server-linux
 ./install.sh
 ```
 
-Uses `apt` for system packages (`python3-venv`, `python3-tk`) if they're missing — may ask for your sudo password once. Run `./uninstall.sh` from the same folder to remove it again.
+Either way, it sets up its own venv under `~/.local/share/headpat-server`, installs Python dependencies, and adds a menu entry. Uses `apt`/`dnf`/`pacman`/`zypper` (whichever is found) for system packages (tkinter, venv) if they're missing — may ask for your sudo password once. Run `./uninstall.sh` from an extracted copy to remove it again.
 
 ## Running from source
 
@@ -111,7 +117,13 @@ VRChat  →  OSC  →  Headpat Server  →  BLE  →  Headpat
 `HeadpatServer-Setup.exe` von [Releases](../../releases) herunterladen und ausführen. Installiert sich nach `C:\Program Files\Headpat Server`.
 
 ### Linux
-`headpat-server-linux.tar.gz` von [Releases](../../releases) herunterladen, entpacken und den Installer ausführen. Legt ein eigenes venv unter `~/.local/share/headpat-server` an, installiert die Python-Abhängigkeiten und richtet einen Menüeintrag ein.
+Einzeiler (lädt das neueste Release und installiert es):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/LucyWolf/Headpat-Server/main/bootstrap.sh | bash
+```
+
+Oder manuell: `headpat-server-linux.tar.gz` von [Releases](../../releases) herunterladen, entpacken und den Installer ausführen.
 
 ```bash
 mkdir headpat-server-linux && tar -xzf headpat-server-linux.tar.gz -C headpat-server-linux
@@ -119,7 +131,7 @@ cd headpat-server-linux
 ./install.sh
 ```
 
-Nutzt `apt` für System-Pakete (`python3-venv`, `python3-tk`), falls sie fehlen — fragt dann evtl. einmalig nach dem sudo-Passwort. Mit `./uninstall.sh` aus demselben Ordner lässt es sich wieder entfernen.
+So oder so wird ein eigenes venv unter `~/.local/share/headpat-server` angelegt, die Python-Abhängigkeiten installiert und ein Menüeintrag eingerichtet. Nutzt `apt`/`dnf`/`pacman`/`zypper` (je nachdem was gefunden wird) für System-Pakete (tkinter, venv), falls sie fehlen — fragt dann evtl. einmalig nach dem sudo-Passwort. Mit `./uninstall.sh` aus einer entpackten Kopie lässt es sich wieder entfernen.
 
 ## Aus dem Quellcode starten
 
