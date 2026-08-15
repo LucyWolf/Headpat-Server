@@ -75,8 +75,8 @@ jobs:
       - name: Package install bundle
         run: |
           mkdir -p pkg
-          cp heatpett_server.py icon.png install.sh uninstall.sh pkg/
-          chmod +x pkg/install.sh pkg/uninstall.sh
+          cp heatpett_server.py icon.png install.sh uninstall.sh headpat-server-installer.desktop pkg/
+          chmod +x pkg/install.sh pkg/uninstall.sh pkg/headpat-server-installer.desktop
           tar -C pkg -czf headpat-server-linux.tar.gz .
 
       - name: Upload artifact
@@ -90,4 +90,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: Headpat Server ${{ github.ref_name }}
-          files: headpat-server-linux.tar.gz
+          files: |
+            headpat-server-linux.tar.gz
+            headpat-server-installer.desktop

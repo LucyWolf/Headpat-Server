@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Headpat Server installieren
+Comment=Laedt die neueste Version und installiert sie grafisch
+Icon=system-software-install
+Exec=bash -c "curl -fsSL https://raw.githubusercontent.com/LucyWolf/Headpat-Server/main/bootstrap.sh | bash"
+Terminal=false
+Categories=Utility;

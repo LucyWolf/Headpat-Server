@@ -33,13 +33,16 @@ VRChat  →  OSC  →  Headpat Server  →  BLE  →  Headpat
 Download `HeadpatServer-Setup.exe` from [Releases](../../releases) and run it. Installs to `C:\Program Files\Headpat Server`.
 
 ### Linux
-Covers **Debian, Ubuntu (and derivatives), Fedora, Arch/CachyOS/Manjaro, and openSUSE** — same one-liner for all of them, it detects `apt`/`dnf`/`pacman`/`zypper` automatically:
+Covers **Debian, Ubuntu (and derivatives), Fedora, Arch/CachyOS/Manjaro, and openSUSE** — the same installer detects `apt`/`dnf`/`pacman`/`zypper` automatically. There's no single "double-click .exe" equivalent on Linux (every distro has its own package format), so pick whichever of these feels right:
 
+**Double-click installer** (closest to a Windows-style setup wizard): download [`headpat-server-installer.desktop`](../../releases/latest/download/headpat-server-installer.desktop), then double-click it in your file manager. The first time you run a downloaded `.desktop` file, most file managers (e.g. GNOME Files) ask you to confirm trust once ("Allow Launching") — same idea as a Windows SmartScreen prompt for an unsigned `.exe`. If `zenity` is installed (it is on most desktops), you'll get a graphical progress bar and password dialog instead of a terminal.
+
+**One-liner** (terminal):
 ```bash
 curl -fsSL https://raw.githubusercontent.com/LucyWolf/Headpat-Server/main/bootstrap.sh | bash
 ```
 
-Or manually: download `headpat-server-linux.tar.gz` from [Releases](../../releases), extract it and run the installer.
+**Manual**: download `headpat-server-linux.tar.gz` from [Releases](../../releases), extract it and run the installer — either `./install.sh` from a terminal, or right-click → "Run"/"Execute" for the graphical mode.
 
 ```bash
 mkdir headpat-server-linux && tar -xzf headpat-server-linux.tar.gz -C headpat-server-linux
@@ -47,9 +50,7 @@ cd headpat-server-linux
 ./install.sh
 ```
 
-Either way, it sets up its own venv under `~/.local/share/headpat-server`, installs Python dependencies, and adds a menu entry. Uses `apt`/`dnf`/`pacman`/`zypper` (whichever is found) for system packages (tkinter, venv) if they're missing. Run `./uninstall.sh` from an extracted copy to remove it again.
-
-`install.sh` can also be run by right-clicking it in a file manager and choosing "Run"/"Execute" instead of a terminal — if `zenity` is installed (it is on most desktops), you'll get a graphical progress dialog and a graphical password prompt instead of a terminal, closer to a Windows-style setup wizard.
+All three set up their own venv under `~/.local/share/headpat-server`, install Python dependencies, and add a menu entry. Uses `apt`/`dnf`/`pacman`/`zypper` (whichever is found) for system packages (tkinter, venv) if they're missing. Run `./uninstall.sh` from an extracted copy to remove it again.
 
 ## Running from source
 
@@ -119,13 +120,16 @@ VRChat  →  OSC  →  Headpat Server  →  BLE  →  Headpat
 `HeadpatServer-Setup.exe` von [Releases](../../releases) herunterladen und ausführen. Installiert sich nach `C:\Program Files\Headpat Server`.
 
 ### Linux
-Deckt **Debian, Ubuntu (und Derivate), Fedora, Arch/CachyOS/Manjaro und openSUSE** ab — derselbe Einzeiler für alle, erkennt `apt`/`dnf`/`pacman`/`zypper` automatisch:
+Deckt **Debian, Ubuntu (und Derivate), Fedora, Arch/CachyOS/Manjaro und openSUSE** ab — derselbe Installer erkennt `apt`/`dnf`/`pacman`/`zypper` automatisch. Es gibt kein einzelnes ".exe-Doppelklick"-Äquivalent auf Linux (jede Distro hat ihr eigenes Paketformat) — nimm, was dir am meisten zusagt:
 
+**Doppelklick-Installer** (kommt einem Windows-Setup-Assistenten am nächsten): [`headpat-server-installer.desktop`](../../releases/latest/download/headpat-server-installer.desktop) herunterladen, dann im Dateimanager doppelklicken. Beim ersten Start einer heruntergeladenen `.desktop`-Datei fragen die meisten Dateimanager (z.B. GNOME Files) einmalig nach Vertrauen ("Ausführen erlauben") — ähnlich wie Windows SmartScreen bei einer unsignierten `.exe`. Ist `zenity` installiert (auf den meisten Desktops der Fall), gibt's eine grafische Fortschrittsanzeige und einen grafischen Passwort-Dialog statt Terminal.
+
+**Einzeiler** (Terminal):
 ```bash
 curl -fsSL https://raw.githubusercontent.com/LucyWolf/Headpat-Server/main/bootstrap.sh | bash
 ```
 
-Oder manuell: `headpat-server-linux.tar.gz` von [Releases](../../releases) herunterladen, entpacken und den Installer ausführen.
+**Manuell**: `headpat-server-linux.tar.gz` von [Releases](../../releases) herunterladen, entpacken und den Installer ausführen — entweder `./install.sh` im Terminal, oder Rechtsklick → "Ausführen" für den grafischen Modus.
 
 ```bash
 mkdir headpat-server-linux && tar -xzf headpat-server-linux.tar.gz -C headpat-server-linux
@@ -133,9 +137,7 @@ cd headpat-server-linux
 ./install.sh
 ```
 
-So oder so wird ein eigenes venv unter `~/.local/share/headpat-server` angelegt, die Python-Abhängigkeiten installiert und ein Menüeintrag eingerichtet. Nutzt `apt`/`dnf`/`pacman`/`zypper` (je nachdem was gefunden wird) für System-Pakete (tkinter, venv), falls sie fehlen. Mit `./uninstall.sh` aus einer entpackten Kopie lässt es sich wieder entfernen.
-
-`install.sh` lässt sich auch per Rechtsklick im Dateimanager mit "Ausführen" starten statt im Terminal — ist `zenity` installiert (auf den meisten Desktops der Fall), gibt's dann eine grafische Fortschrittsanzeige und einen grafischen Passwort-Dialog statt Terminal, näher am Windows-Setup-Gefühl.
+Alle drei Wege legen ein eigenes venv unter `~/.local/share/headpat-server` an, installieren die Python-Abhängigkeiten und richten einen Menüeintrag ein. Nutzt `apt`/`dnf`/`pacman`/`zypper` (je nachdem was gefunden wird) für System-Pakete (tkinter, venv), falls sie fehlen. Mit `./uninstall.sh` aus einer entpackten Kopie lässt es sich wieder entfernen.
 
 ## Aus dem Quellcode starten
 
