@@ -150,7 +150,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.10"
+SERVER_VERSION  = "v3.9.11"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -687,8 +687,10 @@ class App(tk.Tk):
 
         self._int_var        = tk.DoubleVar(value=50)
         self._int_pct_var    = tk.StringVar(value="50%")
-        self._bat_text       = "🔋 ?%"
         self._bat_fg         = FG_DIM
+        self._bat_pct_lbl    = None
+        self._bat_icon_cvs   = None
+        self._bat_icon_img   = None
 
         self._load_icon()
         self._build()
@@ -1489,6 +1491,55 @@ class App(tk.Tk):
         img = img.resize((size, size), Image.LANCZOS)
         return ImageTk.PhotoImage(img)
 
+    def _render_battery_icon(self, pct, color, size=14):
+        """Draw a battery icon (body + terminal nub) filled per pct. Returns PhotoImage or None.
+        Self-drawn instead of the 🔋 emoji, since emoji-font rendering/coloring is
+        inconsistent across platforms (esp. missing color-emoji fonts on Linux)."""
+        if not PIL_OK:
+            return None
+        sc = 6
+        bw, bh = int(size * 1.9), size
+        W, H = bw * sc, bh * sc
+        img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d   = _PilDraw.Draw(img)
+
+        h   = color.lstrip('#')
+        col = tuple(int(h[i:i+2], 16) for i in (0, 2, 4)) + (255,)
+
+        lw     = max(int(sc * 1.1), 2)
+        nub_w  = int(W * 0.09)
+        body   = [lw, lw, W - nub_w - lw, H - lw]
+        d.rounded_rectangle(body, radius=int(H * 0.18), outline=col, width=lw)
+
+        nub_h = int(H * 0.42)
+        nub   = [W - nub_w - lw, (H - nub_h) // 2, W - 1, (H - nub_h) // 2 + nub_h]
+        d.rounded_rectangle(nub, radius=int(nub_h * 0.25), fill=col)
+
+        pct = max(0, min(100, pct))
+        if pct > 0:
+            pad = lw * 2
+            fill_w = int((body[2] - body[0] - pad) * (pct / 100))
+            if fill_w > 0:
+                fbox = [body[0] + pad // 2, body[1] + pad // 2,
+                        body[0] + pad // 2 + fill_w, body[3] - pad // 2]
+                d.rounded_rectangle(fbox, radius=max(int(H * 0.08), 1), fill=col)
+
+        img = img.resize((bw, bh), Image.LANCZOS)
+        return ImageTk.PhotoImage(img)
+
+    def _update_battery(self, pct):
+        """pct: int (0-100) or None for 'unknown'. Updates icon + percent label."""
+        col = FG_DIM if pct is None else (GREEN if pct >= 50 else YELLOW if pct >= 20 else RED)
+        self._bat_fg = col
+        if self._bat_pct_lbl and self._bat_pct_lbl.winfo_exists():
+            self._bat_pct_lbl.config(text=("?%" if pct is None else f"{pct}%"), fg=col)
+        if self._bat_icon_cvs and self._bat_icon_cvs.winfo_exists():
+            img = self._render_battery_icon(0 if pct is None else pct, col)
+            self._bat_icon_img = img
+            self._bat_icon_cvs.delete("all")
+            if img:
+                self._bat_icon_cvs.create_image(0, 0, anchor="nw", image=img)
+
     def _set_badge_active(self, active: bool):
         if self._badge_cvs is None:
             return
@@ -1604,9 +1655,14 @@ class App(tk.Tk):
         tk.Label(status, text="OSC", bg=BG, fg=FG,
                  font=(FONT_UI, fl, "bold")).pack(side="left", padx=(6, 0))
 
-        self._bat_lbl = tk.Label(status, text=self._bat_text, bg=BG,
-                                 fg=self._bat_fg, font=(FONT_MONO, fp))
-        self._bat_lbl.pack(side="right")
+        self._bat_pct_lbl = tk.Label(status, text="?%", bg=BG,
+                                     fg=self._bat_fg, font=(FONT_MONO, fp))
+        self._bat_pct_lbl.pack(side="right")
+        self._bat_icon_cvs = tk.Canvas(status, width=int(14 * 1.9), height=14,
+                                       bg=BG, highlightthickness=0)
+        self._bat_icon_cvs.pack(side="right", padx=(0, 6))
+        self._bat_icon_img = None
+        self._update_battery(None)
 
         # ── Intensity label + % ───────────────────────────────────────────────
         int_label_row = tk.Frame(card, bg=BG)
@@ -2462,16 +2518,12 @@ class App(tk.Tk):
                 while True:
                     tag, val = self._q.get_nowait()
                     if tag == "bat":
-                        pct = int(val)
-                        col = GREEN if pct >= 50 else YELLOW if pct >= 20 else RED
-                        self._bat_text = f"🔋 {pct}%"; self._bat_fg = col
-                        self._bat_lbl.config(text=self._bat_text, fg=self._bat_fg)
+                        self._update_battery(int(val))
                     elif tag == "hp_ble":
                         self._ble_connected = val
                         self._set_dot(self._hp_dot, GREEN if val else RED)
                         if not val:
-                            self._bat_text = "🔋 ?%"; self._bat_fg = FG_DIM
-                            self._bat_lbl.config(text=self._bat_text, fg=self._bat_fg)
+                            self._update_battery(None)
                     elif tag == "vrc":
                         self._vrc_connected = val
                         self._set_dot(self._vrc_dot, GREEN if val else RED)
@@ -2484,8 +2536,7 @@ class App(tk.Tk):
                         self._ble_connected = val
                         self._set_dot(self._hp_dot, GREEN if val else RED)
                         if not val:
-                            self._bat_text = "🔋 ?%"; self._bat_fg = FG_DIM
-                            self._bat_lbl.config(text=self._bat_text, fg=self._bat_fg)
+                            self._update_battery(None)
                             self._hp_version = "?"
                             self._hp_ver_var.set("?")
                     elif tag == "update_found":
