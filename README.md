@@ -30,7 +30,7 @@ VRChat  →  OSC  →  Headpat Server  →  BLE  →  Headpat
 ## Installation
 
 ### Windows
-Download `HeadpatServer-Setup.exe` from [Releases](../../releases) and run it. Installs to `C:\Program Files\Headpat Server`.
+Download `headpat-server-setup.exe` from [Releases](../../releases) and run it. Installs to `C:\Program Files\Headpat Server`.
 
 ### Linux
 There's no single "double-click .exe" equivalent on Linux (every distro has its own package format), so there's a real, native package for the two most common families, plus a generic fallback for everything else.
@@ -118,7 +118,7 @@ VRChat  →  OSC  →  Headpat Server  →  BLE  →  Headpat
 ## Installation
 
 ### Windows
-`HeadpatServer-Setup.exe` von [Releases](../../releases) herunterladen und ausführen. Installiert sich nach `C:\Program Files\Headpat Server`.
+`headpat-server-setup.exe` von [Releases](../../releases) herunterladen und ausführen. Installiert sich nach `C:\Program Files\Headpat Server`.
 
 ### Linux
 Es gibt kein einzelnes ".exe-Doppelklick"-Äquivalent auf Linux (jede Distro hat ihr eigenes Paketformat) — deshalb gibt's für die zwei größten Familien ein echtes natives Paket, plus einen generischen Fallback für den Rest.
