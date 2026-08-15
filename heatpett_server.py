@@ -150,7 +150,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.13"
+SERVER_VERSION  = "v3.9.14"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -634,7 +634,11 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         _resolve_fonts()
-        self.overrideredirect(True)
+        if os.name == "nt":
+            self.overrideredirect(True)
+        else:
+            self.title("Headpat Server")
+            self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.configure(bg=BG_TITLE)
         self.resizable(False, False)
 
@@ -985,7 +989,10 @@ class App(tk.Tk):
 
     def _open_update_dialog(self):
         win = tk.Toplevel(self)
-        win.overrideredirect(True)
+        if os.name == "nt":
+            win.overrideredirect(True)
+        else:
+            win.title("Updates")
         win.configure(bg=BG_TITLE)
         win.resizable(False, False)
         win.withdraw()
@@ -1016,12 +1023,13 @@ class App(tk.Tk):
         title_lbl.bind("<ButtonPress-1>", _drag_start)
         title_lbl.bind("<B1-Motion>",     _drag_move)
 
-        RoundedBtn(tb, "✕", win.destroy,
-                   w=28, h=28, r=7, font_size=13,
-                   fill=BG_TITLE, fg=FG_DIM,
-                   hover="#452525", hover_fg=RED,
-                   press="#5a2525", p_bg=BG_TITLE
-                   ).pack(side="right", padx=(0, 6), pady=8)
+        if os.name == "nt":
+            RoundedBtn(tb, "✕", win.destroy,
+                       w=28, h=28, r=7, font_size=13,
+                       fill=BG_TITLE, fg=FG_DIM,
+                       hover="#452525", hover_fg=RED,
+                       press="#5a2525", p_bg=BG_TITLE
+                       ).pack(side="right", padx=(0, 6), pady=8)
 
         # ── Body ──────────────────────────────────────────────────────────
         body = tk.Frame(win, bg=BG)
@@ -1283,68 +1291,8 @@ class App(tk.Tk):
         self.wm_withdraw()
         self.after(50, self.wm_deiconify)
 
-    def _x11_round_window(self, widget, radius=12):
-        """Corner-rounds a Tk window via the X11 SHAPE extension (also works under
-        XWayland, since that's what Tk/X11 apps run through on Wayland too — Tk
-        itself has no Wayland-native backend). Hard-edged clip mask, approximated
-        with a per-row rectangle staircase (SHAPE has no anti-aliasing)."""
-        try:
-            import ctypes
-            widget.update_idletasks()
-            w = widget.winfo_width()
-            h = widget.winfo_height()
-            if w <= 1 or h <= 1:
-                return
-
-            xlib = ctypes.CDLL("libX11.so.6")
-            xext = ctypes.CDLL("libXext.so.6")
-            xlib.XOpenDisplay.restype     = ctypes.c_void_p
-            xlib.XOpenDisplay.argtypes    = [ctypes.c_char_p]
-            xlib.XCreateRegion.restype    = ctypes.c_void_p
-            xlib.XUnionRectWithRegion.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
-            xlib.XDestroyRegion.argtypes  = [ctypes.c_void_p]
-            xlib.XFlush.argtypes          = [ctypes.c_void_p]
-            xlib.XCloseDisplay.argtypes   = [ctypes.c_void_p]
-            xext.XShapeCombineRegion.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int,
-                                                 ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_int]
-
-            dpy = xlib.XOpenDisplay(None)
-            if not dpy:
-                self._log("[X11 Shape] XOpenDisplay() lieferte NULL — kein X-Server/DISPLAY erreichbar?", "warn")
-                return
-
-            class XRectangle(ctypes.Structure):
-                _fields_ = [("x", ctypes.c_short), ("y", ctypes.c_short),
-                            ("width", ctypes.c_ushort), ("height", ctypes.c_ushort)]
-
-            region = xlib.XCreateRegion()
-
-            def add_rect(x, y, rw, rh):
-                if rw <= 0 or rh <= 0:
-                    return
-                rect = XRectangle(int(x), int(y), int(rw), int(rh))
-                xlib.XUnionRectWithRegion(ctypes.byref(rect), region, region)
-
-            r = min(radius, w // 2, h // 2)
-            for i in range(r):
-                dx = r - int(round((r * r - (r - i) ** 2) ** 0.5))
-                add_rect(dx, i, w - 2 * dx, 1)
-                add_rect(dx, h - 1 - i, w - 2 * dx, 1)
-            add_rect(0, r, w, h - 2 * r)
-
-            win_id = widget.winfo_id()
-            xext.XShapeCombineRegion(dpy, win_id, 0, 0, 0, region, 0)  # ShapeBounding, ShapeSet
-            xlib.XDestroyRegion(region)
-            xlib.XFlush(dpy)
-            xlib.XCloseDisplay(dpy)
-            self._log(f"[X11 Shape] angewendet: {w}x{h}, radius={r}", "info")
-        except Exception as e:
-            import traceback
-            self._log(f"[X11 Shape] Fehler: {e}\n{traceback.format_exc()}", "warn")
-
     def _apply_rounded_corners(self):
         if os.name != "nt":
-            self._x11_round_window(self)
             return
         try:
             import ctypes
@@ -1357,7 +1305,6 @@ class App(tk.Tk):
 
     def _round_toplevel(self, widget):
         if os.name != "nt":
-            self._x11_round_window(widget)
             return
         try:
             import ctypes
@@ -1638,12 +1585,13 @@ class App(tk.Tk):
         ver_lbl.bind("<ButtonPress-1>", self._drag_start)
         ver_lbl.bind("<B1-Motion>",     self._drag_move)
 
-        RoundedBtn(tb, "✕", self._on_close,
-                   w=28, h=28, r=7, font_size=13,
-                   fill=BG_TITLE, fg=FG_DIM,
-                   hover="#452525", hover_fg=RED,
-                   press="#5a2525", p_bg=BG_TITLE
-                   ).pack(side="right", padx=(0, 6), pady=8)
+        if os.name == "nt":
+            RoundedBtn(tb, "✕", self._on_close,
+                       w=28, h=28, r=7, font_size=13,
+                       fill=BG_TITLE, fg=FG_DIM,
+                       hover="#452525", hover_fg=RED,
+                       press="#5a2525", p_bg=BG_TITLE
+                       ).pack(side="right", padx=(0, 6), pady=8)
 
         try:
             _gear_dim = self._render_gear_icon(15, active=False)
@@ -1829,7 +1777,11 @@ class App(tk.Tk):
     def _open_console(self):
         win = tk.Toplevel(self)
         self._console_win = win
-        win.overrideredirect(True)
+        if os.name == "nt":
+            win.overrideredirect(True)
+        else:
+            win.title("Terminal")
+            win.protocol("WM_DELETE_WINDOW", self._toggle_console)
         win.configure(bg=BG_TITLE)
         win.resizable(False, False)
         win.withdraw()
@@ -1860,12 +1812,13 @@ class App(tk.Tk):
         title_lbl.pack(side="left")
         _bind_drag(title_lbl)
 
-        RoundedBtn(tb, "✕", self._toggle_console,
-                   w=28, h=28, r=7, font_size=13,
-                   fill=BG_TITLE, fg=FG_DIM,
-                   hover="#452525", hover_fg=RED,
-                   press="#5a2525", p_bg=BG_TITLE
-                   ).pack(side="right", padx=(0, 6), pady=8)
+        if os.name == "nt":
+            RoundedBtn(tb, "✕", self._toggle_console,
+                       w=28, h=28, r=7, font_size=13,
+                       fill=BG_TITLE, fg=FG_DIM,
+                       hover="#452525", hover_fg=RED,
+                       press="#5a2525", p_bg=BG_TITLE
+                       ).pack(side="right", padx=(0, 6), pady=8)
 
         # OSC-Verbose + Clear log in der Titlebar
         osc_text = "OSC: alle" if self._osc_verbose else "OSC: nur Headpat"
@@ -1986,7 +1939,11 @@ class App(tk.Tk):
 
         win = tk.Toplevel(self)
         self._settings_win = win
-        win.overrideredirect(True)
+        if os.name == "nt":
+            win.overrideredirect(True)
+        else:
+            win.title(_t("settings_title"))
+            win.protocol("WM_DELETE_WINDOW", self._close_settings)
         win.configure(bg=BG_TITLE)
         win.resizable(False, False)
         win.withdraw()
@@ -2017,12 +1974,13 @@ class App(tk.Tk):
         title_lbl.pack(side="left")
         _bind_drag(title_lbl)
 
-        RoundedBtn(tb, "✕", self._close_settings,
-                   w=28, h=28, r=7, font_size=13,
-                   fill=BG_TITLE, fg=FG_DIM,
-                   hover="#452525", hover_fg=RED,
-                   press="#5a2525", p_bg=BG_TITLE
-                   ).pack(side="right", padx=(0, 6), pady=8)
+        if os.name == "nt":
+            RoundedBtn(tb, "✕", self._close_settings,
+                       w=28, h=28, r=7, font_size=13,
+                       fill=BG_TITLE, fg=FG_DIM,
+                       hover="#452525", hover_fg=RED,
+                       press="#5a2525", p_bg=BG_TITLE
+                       ).pack(side="right", padx=(0, 6), pady=8)
 
         # ── Body ──────────────────────────────────────────────────────────
         body = tk.Frame(win, bg=BG)
