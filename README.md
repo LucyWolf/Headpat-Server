@@ -33,7 +33,7 @@ VRChat  →  OSC  →  Headpat Server  →  BLE  →  Headpat
 Download `HeadpatServer-Setup.exe` from [Releases](../../releases) and run it. Installs to `C:\Program Files\Headpat Server`.
 
 ### Linux
-One-liner (downloads the latest release and installs it):
+Covers **Debian, Ubuntu (and derivatives), Fedora, Arch/CachyOS/Manjaro, and openSUSE** — same one-liner for all of them, it detects `apt`/`dnf`/`pacman`/`zypper` automatically:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/LucyWolf/Headpat-Server/main/bootstrap.sh | bash
@@ -117,7 +117,7 @@ VRChat  →  OSC  →  Headpat Server  →  BLE  →  Headpat
 `HeadpatServer-Setup.exe` von [Releases](../../releases) herunterladen und ausführen. Installiert sich nach `C:\Program Files\Headpat Server`.
 
 ### Linux
-Einzeiler (lädt das neueste Release und installiert es):
+Deckt **Debian, Ubuntu (und Derivate), Fedora, Arch/CachyOS/Manjaro und openSUSE** ab — derselbe Einzeiler für alle, erkennt `apt`/`dnf`/`pacman`/`zypper` automatisch:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/LucyWolf/Headpat-Server/main/bootstrap.sh | bash
