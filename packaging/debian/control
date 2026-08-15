@@ -1,0 +1,10 @@
+Package: headpat-server
+Version: __VERSION__
+Section: utils
+Priority: optional
+Architecture: all
+Depends: python3 (>= 3.9), python3-venv, python3-tk, python3-pip
+Maintainer: LucyWolf
+Description: VRChat OSC to Headpat BLE bridge
+ Bridges VRChat OSC contact data (headpats) to the Headpat haptic device
+ via Bluetooth Low Energy. See https://github.com/LucyWolf/Headpat-Server

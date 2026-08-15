@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Headpat Server
+Comment=VRChat OSC to Headpat BLE bridge
+Exec=/usr/bin/headpat-server
+Icon=headpat-server
+Terminal=false
+Categories=Utility;

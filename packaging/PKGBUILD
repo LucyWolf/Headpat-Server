@@ -1,0 +1,19 @@
+# Maintainer: LucyWolf
+pkgname=headpat-server
+pkgver=__VERSION__
+pkgrel=1
+pkgdesc="VRChat OSC to Headpat BLE bridge"
+arch=('any')
+url="https://github.com/LucyWolf/Headpat-Server"
+license=('MIT')
+depends=('python' 'tk' 'python-pip')
+source=("heatpett_server.py" "icon.png" "headpat-server-system.desktop" "launcher.sh")
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+package() {
+    install -Dm644 "$srcdir/heatpett_server.py" "$pkgdir/opt/headpat-server/heatpett_server.py"
+    install -Dm644 "$srcdir/icon.png" "$pkgdir/opt/headpat-server/icon.png"
+    install -Dm644 "$srcdir/icon.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/headpat-server.png"
+    install -Dm644 "$srcdir/headpat-server-system.desktop" "$pkgdir/usr/share/applications/headpat-server.desktop"
+    install -Dm755 "$srcdir/launcher.sh" "$pkgdir/usr/bin/headpat-server"
+}

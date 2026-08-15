@@ -150,7 +150,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.18"
+SERVER_VERSION  = "v3.9.19"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -1237,6 +1237,14 @@ class App(tk.Tk):
             except Exception as e:
                 messagebox.showerror("Update-Fehler", str(e), parent=self)
                 return
+        elif os.path.abspath(__file__).startswith("/opt/headpat-server"):
+            # System-Paket (.deb/Arch) -- dpkg/pacman verwalten diese Dateien,
+            # ein Selbst-Ersetzen aus der App heraus wuerde damit kollidieren.
+            messagebox.showinfo("Update",
+                "Diese Installation kommt von einem System-Paket (.deb/Arch).\n"
+                "Bitte über deinen Paketmanager aktualisieren bzw. das neue\n"
+                "Paket von den GitHub-Releases installieren.", parent=self)
+            return
         else:
             # src ist ein heruntergeladenes headpat-server-linux.tar.gz
             # (heatpett_server.py + icon.png + install.sh). install.sh laeuft

@@ -93,3 +93,78 @@ jobs:
           files: |
             headpat-server-linux.tar.gz
             headpat-server-installer.desktop
+
+  build-deb:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build .deb package
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" =~ ^v ]]; then VERSION="${TAG#v}"; else VERSION="0.0.0"; fi
+          sed -i "s/SERVER_VERSION\s*=\s*\"[^\"]*\"/SERVER_VERSION = \"v$VERSION\"/" heatpett_server.py
+
+          PKGDIR="debbuild/headpat-server_${VERSION}_all"
+          mkdir -p "$PKGDIR/DEBIAN" "$PKGDIR/opt/headpat-server" \
+                   "$PKGDIR/usr/bin" "$PKGDIR/usr/share/applications" \
+                   "$PKGDIR/usr/share/icons/hicolor/256x256/apps"
+          cp heatpett_server.py icon.png "$PKGDIR/opt/headpat-server/"
+          cp packaging/headpat-server-system.desktop "$PKGDIR/usr/share/applications/headpat-server.desktop"
+          cp icon.png "$PKGDIR/usr/share/icons/hicolor/256x256/apps/headpat-server.png"
+          cp packaging/launcher.sh "$PKGDIR/usr/bin/headpat-server"
+          chmod 755 "$PKGDIR/usr/bin/headpat-server"
+          sed "s/__VERSION__/$VERSION/" packaging/debian/control > "$PKGDIR/DEBIAN/control"
+
+          dpkg-deb --build --root-owner-group "$PKGDIR" "headpat-server_${VERSION}_all.deb"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HeadpatServer-deb
+          path: headpat-server_*_all.deb
+
+      - name: Create Release (deb)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Headpat Server ${{ github.ref_name }}
+          files: headpat-server_*_all.deb
+
+  build-arch:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+
+    steps:
+      - name: Install build tools
+        run: pacman -Syu --noconfirm --needed base-devel git
+
+      - uses: actions/checkout@v4
+
+      - name: Build Arch package
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" =~ ^v ]]; then VERSION="${TAG#v}"; else VERSION="0.0.0"; fi
+
+          useradd -m builder
+          mkdir -p archbuild
+          sed "s/__VERSION__/$VERSION/" packaging/PKGBUILD > archbuild/PKGBUILD
+          cp heatpett_server.py icon.png packaging/headpat-server-system.desktop packaging/launcher.sh archbuild/
+          chown -R builder:builder archbuild
+          cd archbuild
+          su builder -c "makepkg --noconfirm"
+          mv *.pkg.tar.zst ../headpat-server-any.pkg.tar.zst
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HeadpatServer-Arch
+          path: headpat-server-any.pkg.tar.zst
+
+      - name: Create Release (Arch)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Headpat Server ${{ github.ref_name }}
+          files: headpat-server-any.pkg.tar.zst
