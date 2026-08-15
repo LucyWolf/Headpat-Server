@@ -47,7 +47,9 @@ cd headpat-server-linux
 ./install.sh
 ```
 
-Either way, it sets up its own venv under `~/.local/share/headpat-server`, installs Python dependencies, and adds a menu entry. Uses `apt`/`dnf`/`pacman`/`zypper` (whichever is found) for system packages (tkinter, venv) if they're missing — may ask for your sudo password once. Run `./uninstall.sh` from an extracted copy to remove it again.
+Either way, it sets up its own venv under `~/.local/share/headpat-server`, installs Python dependencies, and adds a menu entry. Uses `apt`/`dnf`/`pacman`/`zypper` (whichever is found) for system packages (tkinter, venv) if they're missing. Run `./uninstall.sh` from an extracted copy to remove it again.
+
+`install.sh` can also be run by right-clicking it in a file manager and choosing "Run"/"Execute" instead of a terminal — if `zenity` is installed (it is on most desktops), you'll get a graphical progress dialog and a graphical password prompt instead of a terminal, closer to a Windows-style setup wizard.
 
 ## Running from source
 
@@ -131,7 +133,9 @@ cd headpat-server-linux
 ./install.sh
 ```
 
-So oder so wird ein eigenes venv unter `~/.local/share/headpat-server` angelegt, die Python-Abhängigkeiten installiert und ein Menüeintrag eingerichtet. Nutzt `apt`/`dnf`/`pacman`/`zypper` (je nachdem was gefunden wird) für System-Pakete (tkinter, venv), falls sie fehlen — fragt dann evtl. einmalig nach dem sudo-Passwort. Mit `./uninstall.sh` aus einer entpackten Kopie lässt es sich wieder entfernen.
+So oder so wird ein eigenes venv unter `~/.local/share/headpat-server` angelegt, die Python-Abhängigkeiten installiert und ein Menüeintrag eingerichtet. Nutzt `apt`/`dnf`/`pacman`/`zypper` (je nachdem was gefunden wird) für System-Pakete (tkinter, venv), falls sie fehlen. Mit `./uninstall.sh` aus einer entpackten Kopie lässt es sich wieder entfernen.
+
+`install.sh` lässt sich auch per Rechtsklick im Dateimanager mit "Ausführen" starten statt im Terminal — ist `zenity` installiert (auf den meisten Desktops der Fall), gibt's dann eine grafische Fortschrittsanzeige und einen grafischen Passwort-Dialog statt Terminal, näher am Windows-Setup-Gefühl.
 
 ## Aus dem Quellcode starten
 
