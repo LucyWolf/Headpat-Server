@@ -150,7 +150,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.15"
+SERVER_VERSION  = "v3.9.16"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -1567,27 +1567,25 @@ class App(tk.Tk):
             w.bind("<ButtonPress-1>", self._drag_start)
             w.bind("<B1-Motion>",     self._drag_move)
 
+        dot = tk.Canvas(tb, width=9, height=9, bg=BG_TITLE, highlightthickness=0)
+        dot.create_oval(0, 0, 8, 8, fill=ACCENT, outline="")
+        dot.pack(side="left", padx=(14, 7), pady=18)
+        dot.bind("<ButtonPress-1>", self._drag_start)
+        dot.bind("<B1-Motion>",     self._drag_move)
+
+        name_lbl = tk.Label(tb, text="Headpat Server",
+                            bg=BG_TITLE, fg=FG, font=(FONT_UI, 13, "bold"))
+        name_lbl.pack(side="left", pady=10)
+        name_lbl.bind("<ButtonPress-1>", self._drag_start)
+        name_lbl.bind("<B1-Motion>",     self._drag_move)
+
+        ver_lbl = tk.Label(tb, text=SERVER_VERSION,
+                           bg=BG_TITLE, fg=FG_DIM, font=(FONT_UI, 11))
+        ver_lbl.pack(side="left", padx=(5, 0), pady=10)
+        ver_lbl.bind("<ButtonPress-1>", self._drag_start)
+        ver_lbl.bind("<B1-Motion>",     self._drag_move)
+
         if os.name == "nt":
-            # Auf Linux zeigt die native Fensterdeko Name/Icon schon an — die
-            # eigene Beschriftung hier waere eine doppelte Titelzeile.
-            dot = tk.Canvas(tb, width=9, height=9, bg=BG_TITLE, highlightthickness=0)
-            dot.create_oval(0, 0, 8, 8, fill=ACCENT, outline="")
-            dot.pack(side="left", padx=(14, 7), pady=18)
-            dot.bind("<ButtonPress-1>", self._drag_start)
-            dot.bind("<B1-Motion>",     self._drag_move)
-
-            name_lbl = tk.Label(tb, text="Headpat Server",
-                                bg=BG_TITLE, fg=FG, font=(FONT_UI, 13, "bold"))
-            name_lbl.pack(side="left", pady=10)
-            name_lbl.bind("<ButtonPress-1>", self._drag_start)
-            name_lbl.bind("<B1-Motion>",     self._drag_move)
-
-            ver_lbl = tk.Label(tb, text=SERVER_VERSION,
-                               bg=BG_TITLE, fg=FG_DIM, font=(FONT_UI, 11))
-            ver_lbl.pack(side="left", padx=(5, 0), pady=10)
-            ver_lbl.bind("<ButtonPress-1>", self._drag_start)
-            ver_lbl.bind("<B1-Motion>",     self._drag_move)
-
             RoundedBtn(tb, "✕", self._on_close,
                        w=28, h=28, r=7, font_size=13,
                        fill=BG_TITLE, fg=FG_DIM,
