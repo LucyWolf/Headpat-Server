@@ -33,19 +33,22 @@ VRChat  →  OSC  →  Headpat Server  →  BLE  →  Headpat
 Download `HeadpatServer-Setup.exe` from [Releases](../../releases) and run it. Installs to `C:\Program Files\Headpat Server`.
 
 ### Linux
-Download `HeadpatServer-x86_64.AppImage` from [Releases](../../releases), make it executable and run it.
+Download `headpat-server-linux.tar.gz` from [Releases](../../releases), extract it and run the installer. Sets up its own venv under `~/.local/share/headpat-server`, installs Python dependencies, and adds a menu entry.
 
 ```bash
-chmod +x HeadpatServer-x86_64.AppImage
-./HeadpatServer-x86_64.AppImage
+mkdir headpat-server-linux && tar -xzf headpat-server-linux.tar.gz -C headpat-server-linux
+cd headpat-server-linux
+./install.sh
 ```
+
+Uses `apt` for system packages (`python3-venv`, `python3-tk`) if they're missing — may ask for your sudo password once. Run `./uninstall.sh` from the same folder to remove it again.
 
 ## Running from source
 
 Requires Python 3.11+.
 
 ```bash
-pip install python-osc pillow bleak
+pip install -r requirements.txt
 python heatpett_server.py
 ```
 
@@ -108,19 +111,22 @@ VRChat  →  OSC  →  Headpat Server  →  BLE  →  Headpat
 `HeadpatServer-Setup.exe` von [Releases](../../releases) herunterladen und ausführen. Installiert sich nach `C:\Program Files\Headpat Server`.
 
 ### Linux
-`HeadpatServer-x86_64.AppImage` von [Releases](../../releases) herunterladen, ausführbar machen und starten.
+`headpat-server-linux.tar.gz` von [Releases](../../releases) herunterladen, entpacken und den Installer ausführen. Legt ein eigenes venv unter `~/.local/share/headpat-server` an, installiert die Python-Abhängigkeiten und richtet einen Menüeintrag ein.
 
 ```bash
-chmod +x HeadpatServer-x86_64.AppImage
-./HeadpatServer-x86_64.AppImage
+mkdir headpat-server-linux && tar -xzf headpat-server-linux.tar.gz -C headpat-server-linux
+cd headpat-server-linux
+./install.sh
 ```
+
+Nutzt `apt` für System-Pakete (`python3-venv`, `python3-tk`), falls sie fehlen — fragt dann evtl. einmalig nach dem sudo-Passwort. Mit `./uninstall.sh` aus demselben Ordner lässt es sich wieder entfernen.
 
 ## Aus dem Quellcode starten
 
 Benötigt Python 3.11+.
 
 ```bash
-pip install python-osc pillow bleak
+pip install -r requirements.txt
 python heatpett_server.py
 ```
 

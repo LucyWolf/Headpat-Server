@@ -150,7 +150,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.7"
+SERVER_VERSION  = "v3.9.8"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -732,7 +732,7 @@ class App(tk.Tk):
         self._checking_updates = True
         try:
             asset_win  = "HeadpatServer-Setup.exe"
-            asset_lin  = "HeadpatServer-x86_64.AppImage"
+            asset_lin  = "headpat-server-linux.tar.gz"
             checks = [
                 ("headpat", HEADPAT_REPO, "headpat-firmware.uf2"),
                 ("server",  SERVER_REPO,  asset_win if os.name == "nt" else asset_lin),
@@ -1236,9 +1236,34 @@ class App(tk.Tk):
                 messagebox.showerror("Update-Fehler", str(e), parent=self)
                 return
         else:
-            os.chmod(src, 0o755)
-            subprocess.Popen([src])
-            self.after(3000, self._on_close)
+            # src ist ein heruntergeladenes headpat-server-linux.tar.gz
+            # (heatpett_server.py + icon.png + install.sh). install.sh laeuft
+            # im Hintergrund-Thread, da apt/pip auch ohne noetiges sudo ein
+            # paar Sekunden brauchen koennen und die GUI sonst einfriert.
+            def _do_update():
+                try:
+                    import tarfile
+                    extract_dir = tempfile.mkdtemp(prefix="headpat_update_")
+                    with tarfile.open(src) as tf:
+                        tf.extractall(extract_dir)
+                    install_sh = os.path.join(extract_dir, "install.sh")
+                    os.chmod(install_sh, 0o755)
+                    result = subprocess.run(["bash", install_sh],
+                                            capture_output=True, text=True)
+                    if result.returncode != 0:
+                        err = result.stderr.strip()[-500:] or result.stdout.strip()[-500:]
+                        self.after(0, lambda: messagebox.showerror(
+                            "Update-Fehler",
+                            f"install.sh fehlgeschlagen (Exit-Code {result.returncode}):\n{err}",
+                            parent=self))
+                        return
+                    launcher = os.path.expanduser("~/.local/bin/headpat-server")
+                    subprocess.Popen([launcher])
+                    self.after(0, self._on_close)
+                except Exception as e:
+                    self.after(0, lambda: messagebox.showerror(
+                        "Update-Fehler", str(e), parent=self))
+            threading.Thread(target=_do_update, daemon=True).start()
 
     # ── Taskbar icon ──────────────────────────────────────────────────────────
     def _fix_taskbar(self):

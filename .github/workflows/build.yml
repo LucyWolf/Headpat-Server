@@ -66,71 +66,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install system dependencies
-        run: sudo apt-get install -y python3-tk libfuse2
-
-      - name: Install Python dependencies
-        run: pip install pyserial python-osc pillow pyinstaller certifi bleak
-
       - name: Inject version from tag
         run: |
           TAG="${{ github.ref_name }}"
           if [[ "$TAG" =~ ^v ]]; then VERSION="$TAG"; else VERSION="v0.0.0-dev"; fi
           sed -i "s/SERVER_VERSION\s*=\s*\"[^\"]*\"/SERVER_VERSION = \"$VERSION\"/" heatpett_server.py
 
-      - name: Build with PyInstaller
-        run: pyinstaller --onedir --windowed --name="HeadpatServer" --icon=icon.png --add-data "icon.png:." --collect-all certifi --collect-all bleak heatpett_server.py
-
-      - name: Create AppDir
+      - name: Package install bundle
         run: |
-          mkdir -p AppDir
-          cp -r dist/HeadpatServer AppDir/HeadpatServer
-          cp icon.png AppDir/icon.png
-
-          cat > AppDir/headpat-server.desktop << 'EOF'
-          [Desktop Entry]
-          Name=Headpat Server
-          Exec=AppRun
-          Icon=icon
-          Type=Application
-          Categories=Utility;
-          EOF
-
-          cat > AppDir/AppRun << 'EOF'
-          #!/bin/bash
-          SELF=$(readlink -f "$0")
-          HERE=${SELF%/*}
-          if [ -n "$WAYLAND_DISPLAY" ] && [ -z "$DISPLAY" ]; then
-              export DISPLAY=:0
-          fi
-          exec "$HERE/HeadpatServer/HeadpatServer" "$@"
-          EOF
-          chmod +x AppDir/AppRun
-
-      - name: Download appimagetool
-        run: |
-          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x appimagetool-x86_64.AppImage
-          ./appimagetool-x86_64.AppImage --appimage-extract
-          mv squashfs-root appimagetool-extracted
-
-      - name: Build AppImage
-        run: ARCH=x86_64 ./appimagetool-extracted/AppRun AppDir HeadpatServer-x86_64.AppImage
+          mkdir -p pkg
+          cp heatpett_server.py icon.png install.sh uninstall.sh pkg/
+          chmod +x pkg/install.sh pkg/uninstall.sh
+          tar -C pkg -czf headpat-server-linux.tar.gz .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: HeadpatServer-Linux
-          path: HeadpatServer-x86_64.AppImage
+          path: headpat-server-linux.tar.gz
 
       - name: Create Release (Linux)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           name: Headpat Server ${{ github.ref_name }}
-          files: HeadpatServer-x86_64.AppImage
+          files: headpat-server-linux.tar.gz
