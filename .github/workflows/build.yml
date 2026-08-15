@@ -138,7 +138,7 @@ jobs:
 
     steps:
       - name: Install build tools
-        run: pacman -Syu --noconfirm --needed base-devel git
+        run: pacman -Syu --noconfirm --needed base-devel git tk python-pip
 
       - uses: actions/checkout@v4
 
