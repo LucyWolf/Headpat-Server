@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Headpat Server installieren (Debian/Ubuntu)
+Comment=Laedt das aktuelle .deb-Paket und installiert es per apt
+Icon=system-software-install
+Exec=bash -c "curl -fsSL https://github.com/LucyWolf/Headpat-Server/releases/latest/download/headpat-server-all.deb -o /tmp/headpat-server-all.deb && sudo apt install -y /tmp/headpat-server-all.deb; echo; read -p 'Fertig — Enter zum Schliessen...'"
+Terminal=true
+Categories=Utility;

@@ -118,20 +118,22 @@ jobs:
           chmod 755 "$PKGDIR/usr/bin/headpat-server"
           sed "s/__VERSION__/$VERSION/" packaging/debian/control > "$PKGDIR/DEBIAN/control"
 
-          dpkg-deb --build --root-owner-group "$PKGDIR" "headpat-server_${VERSION}_all.deb"
+          dpkg-deb --build --root-owner-group "$PKGDIR" "headpat-server-all.deb"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: HeadpatServer-deb
-          path: headpat-server_*_all.deb
+          path: headpat-server-all.deb
 
       - name: Create Release (deb)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           name: Headpat Server ${{ github.ref_name }}
-          files: headpat-server_*_all.deb
+          files: |
+            headpat-server-all.deb
+            headpat-server-deb-installer.desktop
 
   build-arch:
     runs-on: ubuntu-latest

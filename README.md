@@ -35,10 +35,11 @@ Download `headpat-server-setup.exe` from [Releases](../../releases) and run it. 
 ### Linux
 There's no single "double-click .exe" equivalent on Linux (every distro has its own package format), so there's a real, native package for the two most common families, plus a generic fallback for everything else.
 
-**Debian / Ubuntu (and derivatives)**: download the `.deb` from [Releases](../../releases/latest) and install it — double-click it (opens your software center / GDebi) or:
+**Debian / Ubuntu (and derivatives)**: download the `.deb` from [Releases](../../releases/latest) and install it — double-click it (opens your software center / GDebi on most desktops) or:
 ```bash
-sudo apt install ./headpat-server_*.deb
+sudo apt install ./headpat-server-all.deb
 ```
+Or download [`headpat-server-deb-installer.desktop`](../../releases/latest/download/headpat-server-deb-installer.desktop) and double-click it — downloads the current `.deb` and runs `apt install` in a terminal, for when double-clicking the `.deb` itself doesn't open a package installer on your system.
 
 **Arch / CachyOS / Manjaro**: unlike `.deb`, `.pkg.tar.zst` has no reliable double-click-to-install association unless you have a GUI package manager like Pamac — a plain file manager will likely just try to open it as an archive. Two options:
 ```bash
@@ -124,10 +125,11 @@ VRChat  →  OSC  →  Headpat Server  →  BLE  →  Headpat
 ### Linux
 Es gibt kein einzelnes ".exe-Doppelklick"-Äquivalent auf Linux (jede Distro hat ihr eigenes Paketformat) — deshalb gibt's für die zwei größten Familien ein echtes natives Paket, plus einen generischen Fallback für den Rest.
 
-**Debian / Ubuntu (und Derivate)**: `.deb` von [Releases](../../releases/latest) herunterladen und installieren — doppelklicken (öffnet Software-Center/GDebi) oder:
+**Debian / Ubuntu (und Derivate)**: `.deb` von [Releases](../../releases/latest) herunterladen und installieren — doppelklicken (öffnet auf den meisten Desktops Software-Center/GDebi) oder:
 ```bash
-sudo apt install ./headpat-server_*.deb
+sudo apt install ./headpat-server-all.deb
 ```
+Oder [`headpat-server-deb-installer.desktop`](../../releases/latest/download/headpat-server-deb-installer.desktop) herunterladen und doppelklicken — lädt das aktuelle `.deb` und führt `apt install` im Terminal aus, falls das Doppelklicken der `.deb` selbst bei dir keinen Paket-Installer öffnet.
 
 **Arch / CachyOS / Manjaro**: anders als `.deb` hat `.pkg.tar.zst` keine zuverlässige Doppelklick-Installation, außer du hast eine grafische Paketverwaltung wie Pamac — ein normaler Dateimanager versucht es sonst eher als Archiv zu öffnen. Zwei Wege:
 ```bash
