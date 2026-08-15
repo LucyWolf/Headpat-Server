@@ -150,7 +150,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.9"
+SERVER_VERSION  = "v3.9.10"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -634,11 +634,7 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         _resolve_fonts()
-        if os.name == "nt":
-            self.overrideredirect(True)
-        else:
-            self.title("Headpat Server")
-            self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.overrideredirect(True)
         self.configure(bg=BG_TITLE)
         self.resizable(False, False)
 
@@ -987,10 +983,7 @@ class App(tk.Tk):
 
     def _open_update_dialog(self):
         win = tk.Toplevel(self)
-        if os.name == "nt":
-            win.overrideredirect(True)
-        else:
-            win.title("Updates")
+        win.overrideredirect(True)
         win.configure(bg=BG_TITLE)
         win.resizable(False, False)
         win.withdraw()
@@ -1021,13 +1014,12 @@ class App(tk.Tk):
         title_lbl.bind("<ButtonPress-1>", _drag_start)
         title_lbl.bind("<B1-Motion>",     _drag_move)
 
-        if os.name == "nt":
-            RoundedBtn(tb, "✕", win.destroy,
-                       w=28, h=28, r=7, font_size=13,
-                       fill=BG_TITLE, fg=FG_DIM,
-                       hover="#452525", hover_fg=RED,
-                       press="#5a2525", p_bg=BG_TITLE
-                       ).pack(side="right", padx=(0, 6), pady=8)
+        RoundedBtn(tb, "✕", win.destroy,
+                   w=28, h=28, r=7, font_size=13,
+                   fill=BG_TITLE, fg=FG_DIM,
+                   hover="#452525", hover_fg=RED,
+                   press="#5a2525", p_bg=BG_TITLE
+                   ).pack(side="right", padx=(0, 6), pady=8)
 
         # ── Body ──────────────────────────────────────────────────────────
         body = tk.Frame(win, bg=BG)
@@ -1534,13 +1526,12 @@ class App(tk.Tk):
         ver_lbl.bind("<ButtonPress-1>", self._drag_start)
         ver_lbl.bind("<B1-Motion>",     self._drag_move)
 
-        if os.name == "nt":
-            RoundedBtn(tb, "✕", self._on_close,
-                       w=28, h=28, r=7, font_size=13,
-                       fill=BG_TITLE, fg=FG_DIM,
-                       hover="#452525", hover_fg=RED,
-                       press="#5a2525", p_bg=BG_TITLE
-                       ).pack(side="right", padx=(0, 6), pady=8)
+        RoundedBtn(tb, "✕", self._on_close,
+                   w=28, h=28, r=7, font_size=13,
+                   fill=BG_TITLE, fg=FG_DIM,
+                   hover="#452525", hover_fg=RED,
+                   press="#5a2525", p_bg=BG_TITLE
+                   ).pack(side="right", padx=(0, 6), pady=8)
 
         try:
             _gear_dim = self._render_gear_icon(15, active=False)
@@ -1721,11 +1712,7 @@ class App(tk.Tk):
     def _open_console(self):
         win = tk.Toplevel(self)
         self._console_win = win
-        if os.name == "nt":
-            win.overrideredirect(True)
-        else:
-            win.title("Terminal")
-            win.protocol("WM_DELETE_WINDOW", self._toggle_console)
+        win.overrideredirect(True)
         win.configure(bg=BG_TITLE)
         win.resizable(False, False)
         win.withdraw()
@@ -1756,13 +1743,12 @@ class App(tk.Tk):
         title_lbl.pack(side="left")
         _bind_drag(title_lbl)
 
-        if os.name == "nt":
-            RoundedBtn(tb, "✕", self._toggle_console,
-                       w=28, h=28, r=7, font_size=13,
-                       fill=BG_TITLE, fg=FG_DIM,
-                       hover="#452525", hover_fg=RED,
-                       press="#5a2525", p_bg=BG_TITLE
-                       ).pack(side="right", padx=(0, 6), pady=8)
+        RoundedBtn(tb, "✕", self._toggle_console,
+                   w=28, h=28, r=7, font_size=13,
+                   fill=BG_TITLE, fg=FG_DIM,
+                   hover="#452525", hover_fg=RED,
+                   press="#5a2525", p_bg=BG_TITLE
+                   ).pack(side="right", padx=(0, 6), pady=8)
 
         # OSC-Verbose + Clear log in der Titlebar
         osc_text = "OSC: alle" if self._osc_verbose else "OSC: nur Headpat"
@@ -1883,11 +1869,7 @@ class App(tk.Tk):
 
         win = tk.Toplevel(self)
         self._settings_win = win
-        if os.name == "nt":
-            win.overrideredirect(True)
-        else:
-            win.title(_t("settings_title"))
-            win.protocol("WM_DELETE_WINDOW", self._close_settings)
+        win.overrideredirect(True)
         win.configure(bg=BG_TITLE)
         win.resizable(False, False)
         win.withdraw()
@@ -1918,13 +1900,12 @@ class App(tk.Tk):
         title_lbl.pack(side="left")
         _bind_drag(title_lbl)
 
-        if os.name == "nt":
-            RoundedBtn(tb, "✕", self._close_settings,
-                       w=28, h=28, r=7, font_size=13,
-                       fill=BG_TITLE, fg=FG_DIM,
-                       hover="#452525", hover_fg=RED,
-                       press="#5a2525", p_bg=BG_TITLE
-                       ).pack(side="right", padx=(0, 6), pady=8)
+        RoundedBtn(tb, "✕", self._close_settings,
+                   w=28, h=28, r=7, font_size=13,
+                   fill=BG_TITLE, fg=FG_DIM,
+                   hover="#452525", hover_fg=RED,
+                   press="#5a2525", p_bg=BG_TITLE
+                   ).pack(side="right", padx=(0, 6), pady=8)
 
         # ── Body ──────────────────────────────────────────────────────────
         body = tk.Frame(win, bg=BG)
