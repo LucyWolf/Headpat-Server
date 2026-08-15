@@ -40,10 +40,11 @@ There's no single "double-click .exe" equivalent on Linux (every distro has its 
 sudo apt install ./headpat-server_*.deb
 ```
 
-**Arch / CachyOS / Manjaro**: download the `.pkg.tar.zst` from [Releases](../../releases/latest) and install it:
+**Arch / CachyOS / Manjaro**: unlike `.deb`, `.pkg.tar.zst` has no reliable double-click-to-install association unless you have a GUI package manager like Pamac — a plain file manager will likely just try to open it as an archive. Two options:
 ```bash
 sudo pacman -U headpat-server-*.pkg.tar.zst
 ```
+Or download [`headpat-server-arch-installer.desktop`](../../releases/latest/download/headpat-server-arch-installer.desktop) and double-click it — downloads the current package and runs `pacman -U` in a terminal (asks for your sudo password there, since Arch has no universal graphical equivalent to `pkexec` for pacman).
 
 Both install system-wide (to `/opt/headpat-server`, with a menu entry and a launcher at `/usr/bin/headpat-server`) and declare `tkinter`/`venv` as real package dependencies, resolved automatically by `apt`/`pacman` during install — that's the one privilege-elevation prompt, same idea as Windows UAC for the `.exe` installer. `python-osc` and `bleak` aren't packaged for any distro, so those get installed into a small per-user venv (`~/.local/share/headpat-server/venv`) automatically on first launch, with a graphical progress dialog if `zenity` is installed. Update by installing the newer package the same way — the app won't try to self-update if it detects it was installed this way.
 
@@ -128,10 +129,11 @@ Es gibt kein einzelnes ".exe-Doppelklick"-Äquivalent auf Linux (jede Distro hat
 sudo apt install ./headpat-server_*.deb
 ```
 
-**Arch / CachyOS / Manjaro**: `.pkg.tar.zst` von [Releases](../../releases/latest) herunterladen und installieren:
+**Arch / CachyOS / Manjaro**: anders als `.deb` hat `.pkg.tar.zst` keine zuverlässige Doppelklick-Installation, außer du hast eine grafische Paketverwaltung wie Pamac — ein normaler Dateimanager versucht es sonst eher als Archiv zu öffnen. Zwei Wege:
 ```bash
 sudo pacman -U headpat-server-*.pkg.tar.zst
 ```
+Oder [`headpat-server-arch-installer.desktop`](../../releases/latest/download/headpat-server-arch-installer.desktop) herunterladen und doppelklicken — lädt das aktuelle Paket und führt `pacman -U` im Terminal aus (fragt dort nach dem sudo-Passwort, da Arch kein universelles grafisches Äquivalent zu `pkexec` für pacman hat).
 
 Beide installieren system-weit (nach `/opt/headpat-server`, mit Menüeintrag und Launcher unter `/usr/bin/headpat-server`) und deklarieren `tkinter`/`venv` als echte Paketabhängigkeiten, die `apt`/`pacman` beim Installieren automatisch auflösen — das ist der eine Rechte-Erhöhungs-Dialog, ähnlich wie Windows UAC beim `.exe`-Installer. `python-osc` und `bleak` gibt's für keine Distro als Paket, die landen beim ersten Start automatisch in einem kleinen venv pro Nutzer (`~/.local/share/headpat-server/venv`), mit grafischer Fortschrittsanzeige falls `zenity` installiert ist. Update per Neuinstallation des neueren Pakets — die App versucht sich nicht selbst zu aktualisieren, wenn sie erkennt, dass sie so installiert wurde.
 

@@ -93,6 +93,7 @@ jobs:
           files: |
             headpat-server-linux.tar.gz
             headpat-server-installer.desktop
+            headpat-server-arch-installer.desktop
 
   build-deb:
     runs-on: ubuntu-latest

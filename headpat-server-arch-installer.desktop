@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Headpat Server installieren (Arch)
+Comment=Laedt das aktuelle Arch-Paket und installiert es per pacman
+Icon=system-software-install
+Exec=bash -c "curl -fsSL https://github.com/LucyWolf/Headpat-Server/releases/latest/download/headpat-server-any.pkg.tar.zst -o /tmp/headpat-server-any.pkg.tar.zst && sudo pacman -U --noconfirm /tmp/headpat-server-any.pkg.tar.zst; echo; read -p 'Fertig — Enter zum Schliessen...'"
+Terminal=true
+Categories=Utility;
