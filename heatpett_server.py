@@ -150,7 +150,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.12"
+SERVER_VERSION  = "v3.9.13"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -1310,6 +1310,7 @@ class App(tk.Tk):
 
             dpy = xlib.XOpenDisplay(None)
             if not dpy:
+                self._log("[X11 Shape] XOpenDisplay() lieferte NULL — kein X-Server/DISPLAY erreichbar?", "warn")
                 return
 
             class XRectangle(ctypes.Structure):
@@ -1336,8 +1337,10 @@ class App(tk.Tk):
             xlib.XDestroyRegion(region)
             xlib.XFlush(dpy)
             xlib.XCloseDisplay(dpy)
-        except Exception:
-            pass
+            self._log(f"[X11 Shape] angewendet: {w}x{h}, radius={r}", "info")
+        except Exception as e:
+            import traceback
+            self._log(f"[X11 Shape] Fehler: {e}\n{traceback.format_exc()}", "warn")
 
     def _apply_rounded_corners(self):
         if os.name != "nt":
