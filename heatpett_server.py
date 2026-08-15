@@ -150,7 +150,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.11"
+SERVER_VERSION  = "v3.9.12"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -1283,8 +1283,65 @@ class App(tk.Tk):
         self.wm_withdraw()
         self.after(50, self.wm_deiconify)
 
+    def _x11_round_window(self, widget, radius=12):
+        """Corner-rounds a Tk window via the X11 SHAPE extension (also works under
+        XWayland, since that's what Tk/X11 apps run through on Wayland too — Tk
+        itself has no Wayland-native backend). Hard-edged clip mask, approximated
+        with a per-row rectangle staircase (SHAPE has no anti-aliasing)."""
+        try:
+            import ctypes
+            widget.update_idletasks()
+            w = widget.winfo_width()
+            h = widget.winfo_height()
+            if w <= 1 or h <= 1:
+                return
+
+            xlib = ctypes.CDLL("libX11.so.6")
+            xext = ctypes.CDLL("libXext.so.6")
+            xlib.XOpenDisplay.restype     = ctypes.c_void_p
+            xlib.XOpenDisplay.argtypes    = [ctypes.c_char_p]
+            xlib.XCreateRegion.restype    = ctypes.c_void_p
+            xlib.XUnionRectWithRegion.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+            xlib.XDestroyRegion.argtypes  = [ctypes.c_void_p]
+            xlib.XFlush.argtypes          = [ctypes.c_void_p]
+            xlib.XCloseDisplay.argtypes   = [ctypes.c_void_p]
+            xext.XShapeCombineRegion.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int,
+                                                 ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_int]
+
+            dpy = xlib.XOpenDisplay(None)
+            if not dpy:
+                return
+
+            class XRectangle(ctypes.Structure):
+                _fields_ = [("x", ctypes.c_short), ("y", ctypes.c_short),
+                            ("width", ctypes.c_ushort), ("height", ctypes.c_ushort)]
+
+            region = xlib.XCreateRegion()
+
+            def add_rect(x, y, rw, rh):
+                if rw <= 0 or rh <= 0:
+                    return
+                rect = XRectangle(int(x), int(y), int(rw), int(rh))
+                xlib.XUnionRectWithRegion(ctypes.byref(rect), region, region)
+
+            r = min(radius, w // 2, h // 2)
+            for i in range(r):
+                dx = r - int(round((r * r - (r - i) ** 2) ** 0.5))
+                add_rect(dx, i, w - 2 * dx, 1)
+                add_rect(dx, h - 1 - i, w - 2 * dx, 1)
+            add_rect(0, r, w, h - 2 * r)
+
+            win_id = widget.winfo_id()
+            xext.XShapeCombineRegion(dpy, win_id, 0, 0, 0, region, 0)  # ShapeBounding, ShapeSet
+            xlib.XDestroyRegion(region)
+            xlib.XFlush(dpy)
+            xlib.XCloseDisplay(dpy)
+        except Exception:
+            pass
+
     def _apply_rounded_corners(self):
         if os.name != "nt":
+            self._x11_round_window(self)
             return
         try:
             import ctypes
@@ -1297,6 +1354,7 @@ class App(tk.Tk):
 
     def _round_toplevel(self, widget):
         if os.name != "nt":
+            self._x11_round_window(widget)
             return
         try:
             import ctypes
