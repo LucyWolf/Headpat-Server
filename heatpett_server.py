@@ -119,6 +119,27 @@ YELLOW   = "#fbbf24"
 OSC_COL  = "#1a2d60"
 SEG_CONT = "#080a10"
 
+# ── Fonts ─────────────────────────────────────────────────────────────────────
+# Resolved to real, installed families at runtime via _resolve_fonts() (needs a
+# Tk root to query), since "Inter"/"JetBrains Mono"/"Segoe UI" aren't bundled
+# and are only ever installed by chance on a given machine.
+FONT_UI   = "Inter"
+FONT_MONO = "JetBrains Mono"
+FONT_SYS  = "Segoe UI"
+
+def _resolve_fonts():
+    global FONT_UI, FONT_MONO, FONT_SYS
+    import tkinter.font as tkfont
+    available = set(tkfont.families())
+    def pick(*candidates):
+        for name in candidates:
+            if name in available:
+                return name
+        return "TkDefaultFont"
+    FONT_UI   = pick("Inter", "Segoe UI", "Ubuntu", "Noto Sans", "DejaVu Sans", "Helvetica")
+    FONT_MONO = pick("JetBrains Mono", "Cascadia Mono", "Consolas", "DejaVu Sans Mono", "Liberation Mono", "Courier New")
+    FONT_SYS  = pick("Segoe UI", "Ubuntu", "Noto Sans", "DejaVu Sans", "Helvetica")
+
 # ── Config ────────────────────────────────────────────────────────────────────
 BAUD          = 115200   # für Headpat-DFU-Trigger via USB
 OSC_RX_PORT   = 9001
@@ -129,7 +150,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.6"
+SERVER_VERSION  = "v3.9.7"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -229,7 +250,7 @@ class RoundedBtn(tk.Canvas):
         self._press      = press or hover
         self._hover_fg   = hover_fg if hover_fg is not None else fg
         self._font_size  = font_size
-        self._font_spec  = font_spec if font_spec is not None else ("Segoe UI", font_size)
+        self._font_spec  = font_spec if font_spec is not None else (FONT_SYS, font_size)
         self._border_col = border_col
         self._p_bg       = p_bg
         self._photo      = None
@@ -395,7 +416,7 @@ class SegmentedControl(tk.Canvas):
             cx = self._seg_x(i) + self._seg_w // 2
             cy = self._pad + self._h // 2
             self.create_text(cx, cy, text=label, fill=fg_c,
-                             font=("Inter", 11, bold))
+                             font=(FONT_UI, 11, bold))
 
     def _draw_poly(self):
         w, h, r = self._tw, self._th, self._r_cont
@@ -423,7 +444,7 @@ class SegmentedControl(tk.Canvas):
             cx = x1 + self._seg_w // 2
             cy = y1 + self._h // 2
             self.create_text(cx, cy, text=label, fill=fg_c,
-                             font=("Inter", 11, bold))
+                             font=(FONT_UI, 11, bold))
 
     def _hit(self, x):
         for i in range(len(self._labels)):
@@ -612,7 +633,12 @@ class PulsingDot(tk.Canvas):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.overrideredirect(True)
+        _resolve_fonts()
+        if os.name == "nt":
+            self.overrideredirect(True)
+        else:
+            self.title("Headpat Server")
+            self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.configure(bg=BG_TITLE)
         self.resizable(False, False)
 
@@ -914,10 +940,10 @@ class App(tk.Tk):
         win.grab_set()
         tk.Frame(win, bg=ACCENT, height=2).pack(fill="x")
         lbl = tk.Label(win, text=_t("downloading"),
-                       bg=BG, fg=FG, font=("Segoe UI", 11), pady=16)
+                       bg=BG, fg=FG, font=(FONT_SYS, 11), pady=16)
         lbl.pack(padx=24)
         dots = tk.Label(win, text="", bg=BG, fg=ACCENT,
-                        font=("Segoe UI", 11))
+                        font=(FONT_SYS, 11))
         dots.pack(pady=(0, 16))
 
         cancelled = [False]
@@ -926,7 +952,7 @@ class App(tk.Tk):
             win.destroy()
         tk.Button(win, text="Abbrechen", command=cancel,
                   bg=BG_TITLE, fg=FG_DIM, activebackground=BG_BTN,
-                  bd=0, relief="flat", font=("Segoe UI", 9), padx=10, pady=4,
+                  bd=0, relief="flat", font=(FONT_SYS, 9), padx=10, pady=4,
                   cursor="hand2").pack(pady=(0, 12))
 
         def poll(n=0):
@@ -961,7 +987,10 @@ class App(tk.Tk):
 
     def _open_update_dialog(self):
         win = tk.Toplevel(self)
-        win.overrideredirect(True)
+        if os.name == "nt":
+            win.overrideredirect(True)
+        else:
+            win.title("Updates")
         win.configure(bg=BG_TITLE)
         win.resizable(False, False)
         win.withdraw()
@@ -987,17 +1016,18 @@ class App(tk.Tk):
         dot.bind("<B1-Motion>",     _drag_move)
 
         title_lbl = tk.Label(tb, text="Updates", bg=BG_TITLE, fg=FG,
-                             font=("Inter", 11, "bold"))
+                             font=(FONT_UI, 11, "bold"))
         title_lbl.pack(side="left")
         title_lbl.bind("<ButtonPress-1>", _drag_start)
         title_lbl.bind("<B1-Motion>",     _drag_move)
 
-        RoundedBtn(tb, "✕", win.destroy,
-                   w=28, h=28, r=7, font_size=13,
-                   fill=BG_TITLE, fg=FG_DIM,
-                   hover="#452525", hover_fg=RED,
-                   press="#5a2525", p_bg=BG_TITLE
-                   ).pack(side="right", padx=(0, 6), pady=8)
+        if os.name == "nt":
+            RoundedBtn(tb, "✕", win.destroy,
+                       w=28, h=28, r=7, font_size=13,
+                       fill=BG_TITLE, fg=FG_DIM,
+                       hover="#452525", hover_fg=RED,
+                       press="#5a2525", p_bg=BG_TITLE
+                       ).pack(side="right", padx=(0, 6), pady=8)
 
         # ── Body ──────────────────────────────────────────────────────────
         body = tk.Frame(win, bg=BG)
@@ -1006,9 +1036,9 @@ class App(tk.Tk):
         head = tk.Frame(body, bg=BG)
         head.pack(fill="x", padx=20, pady=(16, 10))
         tk.Label(head, text=_t("upd_available"), bg=BG, fg=FG,
-                 font=("Inter", 11, "bold"), anchor="w").pack(anchor="w")
+                 font=(FONT_UI, 11, "bold"), anchor="w").pack(anchor="w")
         tk.Label(head, text=_t("upd_usb_hint"), bg=BG, fg=FG_DIM,
-                 font=("Inter", 9), justify="left", anchor="w").pack(anchor="w", pady=(3, 0))
+                 font=(FONT_UI, 9), justify="left", anchor="w").pack(anchor="w", pady=(3, 0))
 
         labels = {"headpat": "Headpat Firmware", "server": "Server"}
         if self._updates:
@@ -1020,9 +1050,9 @@ class App(tk.Tk):
                 info = tk.Frame(row, bg=BG)
                 info.pack(side="left")
                 tk.Label(info, text=entry["tag"], bg=BG, fg=ACCENT,
-                         font=("Inter", 10, "bold")).pack(side="left", padx=(0, 8))
+                         font=(FONT_UI, 10, "bold")).pack(side="left", padx=(0, 8))
                 tk.Label(info, text=labels.get(key, key), bg=BG, fg=FG,
-                         font=("Inter", 10, "bold")).pack(side="left")
+                         font=(FONT_UI, 10, "bold")).pack(side="left")
 
                 if key == "server":
                     cmd = lambda k=key, w=win: (w.destroy(), self._server_update(k))
@@ -1034,25 +1064,25 @@ class App(tk.Tk):
                            w=92, h=30, r=8, p_bg=BG,
                            fill=ACCENT, fg="#ffffff",
                            hover="#5591ff", hover_fg="#ffffff",
-                           font_spec=("Inter", 10, "bold")
+                           font_spec=(FONT_UI, 10, "bold")
                            ).pack(side="right")
         else:
             if self._last_check_rate_limited:
                 tk.Label(body, text="GitHub Rate Limit erreicht.\nBitte in ~1 Minute erneut versuchen.",
-                         bg=BG, fg=YELLOW, font=("Inter", 10), justify="center", pady=14).pack()
+                         bg=BG, fg=YELLOW, font=(FONT_UI, 10), justify="center", pady=14).pack()
             elif self._last_check_had_errors:
                 tk.Label(body, text="GitHub nicht erreichbar.\nDetails im Terminal.", bg=BG,
-                         fg=YELLOW, font=("Inter", 10), justify="center", pady=14).pack()
+                         fg=YELLOW, font=(FONT_UI, 10), justify="center", pady=14).pack()
             else:
                 tk.Label(body, text=_t("upd_all_ok"), bg=BG, fg=FG_DIM,
-                         font=("Inter", 10), pady=14).pack()
+                         font=(FONT_UI, 10), pady=14).pack()
 
         # ── Bottom ────────────────────────────────────────────────────────
         def _refresh():
             for w in body.winfo_children():
                 w.destroy()
             tk.Label(body, text="Suche nach Updates…", bg=BG, fg=FG_DIM,
-                     font=("Inter", 10), pady=20).pack()
+                     font=(FONT_UI, 10), pady=20).pack()
             win.update_idletasks()
             self._log("Suche nach Updates…", "info")
             def _run():
@@ -1067,14 +1097,14 @@ class App(tk.Tk):
                    w=130, h=34, r=9, p_bg=BG,
                    fill=ACCENT, fg="#ffffff",
                    hover="#5591ff", hover_fg="#ffffff",
-                   font_spec=("Inter", 11, "bold")
+                   font_spec=(FONT_UI, 11, "bold")
                    ).pack(side="left")
         RoundedBtn(bottom, _t("btn_close"), win.destroy,
                    w=100, h=34, r=9, p_bg=BG,
                    fill=BG_BTN, fg=FG_DIM,
                    hover=BG_BTN_A, hover_fg=FG,
                    border_col=BORDER,
-                   font_spec=("Inter", 11)
+                   font_spec=(FONT_UI, 11)
                    ).pack(side="right")
 
         win.update_idletasks()
@@ -1100,14 +1130,14 @@ class App(tk.Tk):
         win.grab_set()
         tk.Frame(win, bg=ACCENT, height=2).pack(fill="x")
         tk.Label(win, text=_t("hp_flash_title"), bg=BG, fg=FG,
-                 font=("Segoe UI", 12, "bold"), pady=12).pack(padx=20)
+                 font=(FONT_SYS, 12, "bold"), pady=12).pack(padx=20)
         tk.Label(win, text=_t("hp_flash_hint"),
-                 bg=BG, fg=FG_DIM, font=("Segoe UI", 10), justify="center").pack(padx=20, pady=(0, 14))
+                 bg=BG, fg=FG_DIM, font=(FONT_SYS, 10), justify="center").pack(padx=20, pady=(0, 14))
 
         port_row = tk.Frame(win, bg=BG)
         port_row.pack(fill="x", padx=20, pady=(0, 6))
         tk.Label(port_row, text="COM Port:", bg=BG, fg=FG_DIM,
-                 font=("Segoe UI", 10)).pack(side="left")
+                 font=(FONT_SYS, 10)).pack(side="left")
 
         ports = [p.device for p in serial.tools.list_ports.comports()] if SERIAL_OK else []
         port_var = tk.StringVar()
@@ -1115,7 +1145,7 @@ class App(tk.Tk):
                                   width=10, style="P.TCombobox")
         port_combo.pack(side="left", padx=(8, 0))
 
-        status_lbl = tk.Label(win, text="", bg=BG, fg=FG_DIM, font=("Segoe UI", 9))
+        status_lbl = tk.Label(win, text="", bg=BG, fg=FG_DIM, font=(FONT_SYS, 9))
         status_lbl.pack(pady=(0, 10))
 
         def _search():
@@ -1136,7 +1166,7 @@ class App(tk.Tk):
 
         tk.Button(port_row, text=_t("btn_search"), command=_search,
                   bg=BG_BTN, fg=FG_DIM, activebackground=BG_BTN_A, bd=0,
-                  relief="flat", font=("Segoe UI", 10), padx=10, pady=6,
+                  relief="flat", font=(FONT_SYS, 10), padx=10, pady=6,
                   cursor="hand2").pack(side="left", padx=(6, 0))
 
         def _do_flash():
@@ -1151,11 +1181,11 @@ class App(tk.Tk):
         btn_row.pack(fill="x", padx=20, pady=(4, 16))
         tk.Button(btn_row, text=_t("btn_cancel"), command=win.destroy,
                   bg=BG_TITLE, fg=FG_DIM, activebackground=BG_BTN, bd=0,
-                  relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
+                  relief="flat", font=(FONT_SYS, 10), padx=12, pady=6,
                   cursor="hand2").pack(side="left")
         tk.Button(btn_row, text=_t("btn_flash"), command=_do_flash,
                   bg=BG_BTN, fg=ACCENT, activebackground=BG_BTN_A, bd=0,
-                  relief="flat", font=("Segoe UI", 10), padx=12, pady=6,
+                  relief="flat", font=(FONT_SYS, 10), padx=12, pady=6,
                   cursor="hand2").pack(side="right")
 
     def _auto_find_headpat_port(self):
@@ -1468,23 +1498,24 @@ class App(tk.Tk):
         dot.bind("<B1-Motion>",     self._drag_move)
 
         name_lbl = tk.Label(tb, text="Headpat Server",
-                            bg=BG_TITLE, fg=FG, font=("Inter", 13, "bold"))
+                            bg=BG_TITLE, fg=FG, font=(FONT_UI, 13, "bold"))
         name_lbl.pack(side="left", pady=10)
         name_lbl.bind("<ButtonPress-1>", self._drag_start)
         name_lbl.bind("<B1-Motion>",     self._drag_move)
 
         ver_lbl = tk.Label(tb, text=SERVER_VERSION,
-                           bg=BG_TITLE, fg=FG_DIM, font=("Inter", 11))
+                           bg=BG_TITLE, fg=FG_DIM, font=(FONT_UI, 11))
         ver_lbl.pack(side="left", padx=(5, 0), pady=10)
         ver_lbl.bind("<ButtonPress-1>", self._drag_start)
         ver_lbl.bind("<B1-Motion>",     self._drag_move)
 
-        RoundedBtn(tb, "✕", self._on_close,
-                   w=28, h=28, r=7, font_size=13,
-                   fill=BG_TITLE, fg=FG_DIM,
-                   hover="#452525", hover_fg=RED,
-                   press="#5a2525", p_bg=BG_TITLE
-                   ).pack(side="right", padx=(0, 6), pady=8)
+        if os.name == "nt":
+            RoundedBtn(tb, "✕", self._on_close,
+                       w=28, h=28, r=7, font_size=13,
+                       fill=BG_TITLE, fg=FG_DIM,
+                       hover="#452525", hover_fg=RED,
+                       press="#5a2525", p_bg=BG_TITLE
+                       ).pack(side="right", padx=(0, 6), pady=8)
 
         try:
             _gear_dim = self._render_gear_icon(15, active=False)
@@ -1515,7 +1546,7 @@ class App(tk.Tk):
                                          anchor="center", tags="icon")
         else:
             self._badge_cvs.create_text(bsz // 2, bsz // 2, text="↺",
-                                        fill=FG_DIM, font=("Segoe UI", 14),
+                                        fill=FG_DIM, font=(FONT_SYS, 14),
                                         tags="icon")
         self._badge_cvs.bind("<Button-1>", lambda _: self._open_update_dialog())
 
@@ -1550,24 +1581,24 @@ class App(tk.Tk):
         self._hp_dot = self._dot(status, GREEN if self._ble_connected else RED)
         self._hp_dot.pack(side="left")
         tk.Label(status, text="Headpat", bg=BG, fg=FG,
-                 font=("Inter", fl, "bold")).pack(side="left", padx=(6, 0))
+                 font=(FONT_UI, fl, "bold")).pack(side="left", padx=(6, 0))
 
         self._vrc_dot = self._dot(status, GREEN if self._vrc_connected else RED)
         self._vrc_dot.pack(side="left", padx=(18, 0))
         tk.Label(status, text="OSC", bg=BG, fg=FG,
-                 font=("Inter", fl, "bold")).pack(side="left", padx=(6, 0))
+                 font=(FONT_UI, fl, "bold")).pack(side="left", padx=(6, 0))
 
         self._bat_lbl = tk.Label(status, text=self._bat_text, bg=BG,
-                                 fg=self._bat_fg, font=("JetBrains Mono", fp))
+                                 fg=self._bat_fg, font=(FONT_MONO, fp))
         self._bat_lbl.pack(side="right")
 
         # ── Intensity label + % ───────────────────────────────────────────────
         int_label_row = tk.Frame(card, bg=BG)
         int_label_row.pack(fill="x", padx=20, pady=(10, 2))
         tk.Label(int_label_row, text="Intensität", bg=BG, fg=FG,
-                 font=("Inter", fl, "bold")).pack(side="left")
+                 font=(FONT_UI, fl, "bold")).pack(side="left")
         tk.Label(int_label_row, textvariable=self._int_pct_var, bg=BG, fg=ACCENT,
-                 font=("JetBrains Mono", fp, "bold")).pack(side="right")
+                 font=(FONT_MONO, fp, "bold")).pack(side="right")
 
         # ── Slider ────────────────────────────────────────────────────────────
         FancySlider(card, variable=self._int_var, from_=0, to=100,
@@ -1579,7 +1610,7 @@ class App(tk.Tk):
         mode_row = tk.Frame(card, bg=BG)
         mode_row.pack(fill="x", padx=20, pady=(8, 8))
         tk.Label(mode_row, text="Modus", bg=BG, fg=FG,
-                 font=("Inter", fl, "bold")).pack(side="left")
+                 font=(FONT_UI, fl, "bold")).pack(side="left")
 
         def _select_mode(m):
             self._vib_mode = m
@@ -1595,11 +1626,11 @@ class App(tk.Tk):
         test_row = tk.Frame(card, bg=BG)
         test_row.pack(fill="x", padx=20, pady=(8, 14))
         tk.Label(test_row, text="Test", bg=BG, fg=FG,
-                 font=("Inter", fl, "bold")).pack(side="left")
+                 font=(FONT_UI, fl, "bold")).pack(side="left")
         RoundedBtn(test_row, "Sleep", lambda: self._send_cmd("hpsleep"),
                    w=62, h=36, r=8, p_bg=BG,
                    fill=BG_BTN, fg="#a78bfa", hover=BG_BTN_A, hover_fg="#c4b5fd",
-                   border_col=BORDER, font_spec=("Inter", 10, "bold")
+                   border_col=BORDER, font_spec=(FONT_UI, 10, "bold")
                    ).pack(side="left", padx=(12, 0))
         self._mkbtn(test_row, "R", self._pat_right).pack(side="right")
         self._mkbtn(test_row, "L", self._pat_left).pack(side="right", padx=(0, 10))
@@ -1624,7 +1655,7 @@ class App(tk.Tk):
                           fill=BG_BTN, fg=FG,
                           hover=BG_BTN, hover_fg=FG,
                           press=ACCENT, border_col=BORDER,
-                          font_spec=("Inter", 11, "bold"))
+                          font_spec=(FONT_UI, 11, "bold"))
 
     # ── Drag ──────────────────────────────────────────────────────────────────
     def _drag_start(self, e):
@@ -1665,7 +1696,11 @@ class App(tk.Tk):
     def _open_console(self):
         win = tk.Toplevel(self)
         self._console_win = win
-        win.overrideredirect(True)
+        if os.name == "nt":
+            win.overrideredirect(True)
+        else:
+            win.title("Terminal")
+            win.protocol("WM_DELETE_WINDOW", self._toggle_console)
         win.configure(bg=BG_TITLE)
         win.resizable(False, False)
         win.withdraw()
@@ -1692,16 +1727,17 @@ class App(tk.Tk):
         _bind_drag(dot)
 
         title_lbl = tk.Label(tb, text="Terminal", bg=BG_TITLE, fg=FG,
-                             font=("Inter", 11, "bold"))
+                             font=(FONT_UI, 11, "bold"))
         title_lbl.pack(side="left")
         _bind_drag(title_lbl)
 
-        RoundedBtn(tb, "✕", self._toggle_console,
-                   w=28, h=28, r=7, font_size=13,
-                   fill=BG_TITLE, fg=FG_DIM,
-                   hover="#452525", hover_fg=RED,
-                   press="#5a2525", p_bg=BG_TITLE
-                   ).pack(side="right", padx=(0, 6), pady=8)
+        if os.name == "nt":
+            RoundedBtn(tb, "✕", self._toggle_console,
+                       w=28, h=28, r=7, font_size=13,
+                       fill=BG_TITLE, fg=FG_DIM,
+                       hover="#452525", hover_fg=RED,
+                       press="#5a2525", p_bg=BG_TITLE
+                       ).pack(side="right", padx=(0, 6), pady=8)
 
         # OSC-Verbose + Clear log in der Titlebar
         osc_text = "OSC: alle" if self._osc_verbose else "OSC: nur Headpat"
@@ -1711,7 +1747,7 @@ class App(tk.Tk):
                                     fill=BG_BTN, fg=osc_fg,
                                     hover=BG_BTN_A, hover_fg=FG,
                                     border_col=BORDER,
-                                    font_spec=("Inter", 9),
+                                    font_spec=(FONT_UI, 9),
                                     p_bg=BG_TITLE)
         self._verb_btn.pack(side="right", padx=(0, 4), pady=9)
 
@@ -1720,7 +1756,7 @@ class App(tk.Tk):
                    fill=BG_BTN, fg=FG_DIM,
                    hover=BG_BTN_A, hover_fg=FG,
                    border_col=BORDER,
-                   font_spec=("Inter", 9),
+                   font_spec=(FONT_UI, 9),
                    p_bg=BG_TITLE
                    ).pack(side="right", padx=(0, 4), pady=9)
 
@@ -1733,7 +1769,7 @@ class App(tk.Tk):
 
         self._console_text = tk.Text(
             txt_frame, bg="#07090e", fg=FG_DIM,
-            font=("JetBrains Mono", 9), state="disabled",
+            font=(FONT_MONO, 9), state="disabled",
             wrap="none", selectbackground=BG_BTN_A,
             relief="flat", bd=0, insertbackground=FG
         )
@@ -1770,7 +1806,7 @@ class App(tk.Tk):
         RoundedBtn(cmd_area, "HP Sleep", lambda: self._send_cmd("hpsleep"),
                    w=78, h=30, r=7, p_bg=BG,
                    fill=BG_BTN, fg="#a78bfa", hover=BG_BTN_A, hover_fg="#c4b5fd",
-                   border_col=BORDER, font_spec=("Inter", 10, "bold")
+                   border_col=BORDER, font_spec=(FONT_UI, 10, "bold")
                    ).pack(side="left")
 
         # ── Position & Anzeige ────────────────────────────────────────────
@@ -1822,7 +1858,11 @@ class App(tk.Tk):
 
         win = tk.Toplevel(self)
         self._settings_win = win
-        win.overrideredirect(True)
+        if os.name == "nt":
+            win.overrideredirect(True)
+        else:
+            win.title(_t("settings_title"))
+            win.protocol("WM_DELETE_WINDOW", self._close_settings)
         win.configure(bg=BG_TITLE)
         win.resizable(False, False)
         win.withdraw()
@@ -1849,16 +1889,17 @@ class App(tk.Tk):
         _bind_drag(dot)
 
         title_lbl = tk.Label(tb, text=_t("settings_title"), bg=BG_TITLE, fg=FG,
-                             font=("Inter", 11, "bold"))
+                             font=(FONT_UI, 11, "bold"))
         title_lbl.pack(side="left")
         _bind_drag(title_lbl)
 
-        RoundedBtn(tb, "✕", self._close_settings,
-                   w=28, h=28, r=7, font_size=13,
-                   fill=BG_TITLE, fg=FG_DIM,
-                   hover="#452525", hover_fg=RED,
-                   press="#5a2525", p_bg=BG_TITLE
-                   ).pack(side="right", padx=(0, 6), pady=8)
+        if os.name == "nt":
+            RoundedBtn(tb, "✕", self._close_settings,
+                       w=28, h=28, r=7, font_size=13,
+                       fill=BG_TITLE, fg=FG_DIM,
+                       hover="#452525", hover_fg=RED,
+                       press="#5a2525", p_bg=BG_TITLE
+                       ).pack(side="right", padx=(0, 6), pady=8)
 
         # ── Body ──────────────────────────────────────────────────────────
         body = tk.Frame(win, bg=BG)
@@ -1867,11 +1908,11 @@ class App(tk.Tk):
         W = 300
 
         tk.Label(body, text=_t("settings_title"), bg=BG, fg=FG,
-                 font=("Inter", 15, "bold")).pack(anchor="w", padx=20, pady=(16, 14))
+                 font=(FONT_UI, 15, "bold")).pack(anchor="w", padx=20, pady=(16, 14))
 
         def sep(): tk.Frame(body, bg=BORDER, height=1).pack(fill="x")
         def sec(t): tk.Label(body, text=t.upper(), bg=BG, fg=FG_DIM,
-                             font=("Inter", 8, "bold")).pack(anchor="w", padx=20, pady=(10, 6))
+                             font=(FONT_UI, 8, "bold")).pack(anchor="w", padx=20, pady=(10, 6))
 
         # Combobox style
         s = ttk.Style()
@@ -1906,12 +1947,12 @@ class App(tk.Tk):
         RoundedBtn(dev_row, "+", self._ble_scan_dialog,
                    w=28, h=28, r=7, p_bg=BG,
                    fill=BG_BTN, fg=GREEN, hover=BG_BTN_A, hover_fg=GREEN,
-                   border_col=BORDER, font_spec=("Inter", 13, "bold")
+                   border_col=BORDER, font_spec=(FONT_UI, 13, "bold")
                    ).pack(side="left", padx=(6, 0))
         RoundedBtn(dev_row, "−", self._ble_remove_device,
                    w=28, h=28, r=7, p_bg=BG,
                    fill=BG_BTN, fg=RED, hover=BG_BTN_A, hover_fg=RED,
-                   border_col=BORDER, font_spec=("Inter", 13, "bold")
+                   border_col=BORDER, font_spec=(FONT_UI, 13, "bold")
                    ).pack(side="left", padx=(4, 0))
 
         ble_connected = self._ble_client is not None
@@ -1923,12 +1964,12 @@ class App(tk.Tk):
                    fg="#ffffff",
                    hover="#c0392b" if ble_connected else "#27ae60",
                    hover_fg="#ffffff",
-                   font_spec=("Inter", 11, "bold")
+                   font_spec=(FONT_UI, 11, "bold")
                    )
         self._ble_conn_btn.pack(padx=20, pady=(0, 6))
         if not BLE_OK:
             tk.Label(body, text="! pip install bleak", bg=BG, fg=YELLOW,
-                     font=("Inter", 9)).pack(padx=20, anchor="w", pady=(0, 8))
+                     font=(FONT_UI, 9)).pack(padx=20, anchor="w", pady=(0, 8))
 
         # ── Versionen ─────────────────────────────────────────────────────
         sep()
@@ -1942,9 +1983,9 @@ class App(tk.Tk):
             r = tk.Frame(ver_frame, bg=BG)
             r.pack(fill="x", pady=4)
             tk.Label(r, text=label, bg=BG, fg=FG_DIM,
-                     font=("Inter", 10)).pack(side="left")
+                     font=(FONT_UI, 10)).pack(side="left")
             tk.Label(r, textvariable=var, bg=BG, fg=color,
-                     font=("Inter", 10, "bold")).pack(side="right")
+                     font=(FONT_UI, 10, "bold")).pack(side="right")
 
         # ── Sprache + Autostart ───────────────────────────────────────────
         sep()
@@ -1954,7 +1995,7 @@ class App(tk.Tk):
         lang_frame = tk.Frame(bot_row, bg=BG)
         lang_frame.pack(side="left")
         tk.Label(lang_frame, text=_t("sec_language").upper(), bg=BG, fg=FG_DIM,
-                 font=("Inter", 8, "bold")).pack(anchor="w")
+                 font=(FONT_UI, 8, "bold")).pack(anchor="w")
         lang_combo = ttk.Combobox(lang_frame, textvariable=self._lang_var,
                                   values=["de", "en"], width=7,
                                   style="P.TCombobox", state="readonly")
@@ -1971,7 +2012,7 @@ class App(tk.Tk):
         as_frame = tk.Frame(bot_row, bg=BG)
         as_frame.pack(side="right")
         tk.Label(as_frame, text="AUTOSTART", bg=BG, fg=FG_DIM,
-                 font=("Inter", 8, "bold")).pack(anchor="e")
+                 font=(FONT_UI, 8, "bold")).pack(anchor="e")
 
         _as_state = [self._autostart_enabled()]
         TW, TH = 38, 22
@@ -2101,27 +2142,27 @@ class App(tk.Tk):
         dlg.grab_set()
 
         tk.Label(dlg, text="Headpat-Geräte in der Nähe:", bg=BG, fg=FG,
-                 font=("Inter", 10, "bold")).pack(padx=16, pady=(14, 6), anchor="w")
+                 font=(FONT_UI, 10, "bold")).pack(padx=16, pady=(14, 6), anchor="w")
 
         frame = tk.Frame(dlg, bg=BORDER)
         frame.pack(padx=16, fill="both", expand=True)
         lb = tk.Listbox(frame, bg=BG_BTN, fg=FG, selectbackground=ACCENT,
-                        selectforeground="#000", font=("Inter", 10),
+                        selectforeground="#000", font=(FONT_UI, 10),
                         width=44, height=6, bd=0, highlightthickness=0)
         lb.pack(padx=1, pady=1, fill="both", expand=True)
 
         status_var = tk.StringVar(value="Scanne… (6s)")
         tk.Label(dlg, textvariable=status_var, bg=BG, fg=FG_DIM,
-                 font=("Inter", 9)).pack(padx=16, anchor="w", pady=(4, 0))
+                 font=(FONT_UI, 9)).pack(padx=16, anchor="w", pady=(4, 0))
 
         nick_frame = tk.Frame(dlg, bg=BG)
         nick_frame.pack(fill="x", padx=16, pady=(8, 0))
         tk.Label(nick_frame, text="Spitzname:", bg=BG, fg=FG,
-                 font=("Inter", 10)).pack(side="left")
+                 font=(FONT_UI, 10)).pack(side="left")
         nick_var = tk.StringVar(value="Headpat")
         nick_entry = tk.Entry(nick_frame, textvariable=nick_var,
                               bg=BG_BTN, fg=FG, insertbackground=FG,
-                              relief="flat", font=("Inter", 10), width=18)
+                              relief="flat", font=(FONT_UI, 10), width=18)
         nick_entry.pack(side="left", padx=(8, 0))
 
         found = []  # list of BLEDevice
@@ -2158,12 +2199,12 @@ class App(tk.Tk):
         RoundedBtn(btn_row, "Abbrechen", dlg.destroy,
                    w=100, h=32, r=8, p_bg=BG,
                    fill=BG_BTN, fg=FG, hover=BG_BTN_A, hover_fg=FG,
-                   border_col=BORDER, font_spec=("Inter", 10)
+                   border_col=BORDER, font_spec=(FONT_UI, 10)
                    ).pack(side="left", padx=(0, 8))
         RoundedBtn(btn_row, "Speichern", _save,
                    w=100, h=32, r=8, p_bg=BG,
                    fill=GREEN, fg="#ffffff", hover="#27ae60", hover_fg="#ffffff",
-                   font_spec=("Inter", 10, "bold")
+                   font_spec=(FONT_UI, 10, "bold")
                    ).pack(side="left")
 
         dlg.update_idletasks()
@@ -2315,7 +2356,7 @@ class App(tk.Tk):
         btn.set_style(col, "#ffffff", col, "#ffffff")
 
     def _send_motor(self, left_n: int, right_n: int):
-        left_n  = max(0, min(14, left_n))
+        left_n  = max(0, min(14, left_n))  # absichtlich < 15, sonst brennt der linke Motor durch
         right_n = max(0, min(15, right_n))
         self._ble_send(bytes([left_n << 4 | right_n]))
 
