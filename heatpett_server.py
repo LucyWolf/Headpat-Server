@@ -151,7 +151,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.27"
+SERVER_VERSION  = "v3.9.28"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 def _ble_adapter_hint(exc=None):
@@ -2490,6 +2490,29 @@ class App(tk.Tk):
             self._ble_client = None
             self._q.put(("ble_direct", False))
 
+    async def _ble_clear_stale(self, address):
+        """Loest eine Verbindung, die von einer beendeten Sitzung in BlueZ haengenblieb.
+
+        Ein verbundenes BLE-Geraet wirbt nicht mehr. Wird die App beendet, ohne dass
+        die Verbindung sauber abgebaut wird, haelt BlueZ sie weiter -- der Headpat ist
+        dann fuer jeden Scan unsichtbar, auch ueber seine Adresse. Das sieht aus wie
+        "Geraet weg", obwohl es eingeschaltet und in Reichweite ist.
+        """
+        if os.name == "nt" or not shutil.which("bluetoothctl"):
+            return None
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "bluetoothctl", "disconnect", address,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+            out, _ = await asyncio.wait_for(proc.communicate(), timeout=10)
+        except Exception:
+            return None
+        if b"successful" not in out.lower():
+            return None   # Adresse kennt BlueZ nicht -- dann hilft auch kein neuer Scan
+        self._log("BLE: Verbindung in BlueZ zurückgesetzt, suche erneut…", "info")
+        await asyncio.sleep(1.5)
+        return await BleakScanner.find_device_by_address(address, timeout=10)
+
     async def _ble_run(self):
         device = None
         if self._ble_address:
@@ -2498,6 +2521,8 @@ class App(tk.Tk):
         if device is None:
             self._log(f"BLE: Scanne nach '{HP_NAME}'…", "info")
             device = await BleakScanner.find_device_by_name(HP_NAME, timeout=12)
+        if device is None and self._ble_address:
+            device = await self._ble_clear_stale(self._ble_address)
         if device is None:
             # Nur wenn wirklich kein Adapter da ist, vom Bluetooth reden – sonst fehlt der Headpat.
             hint = _ble_adapter_hint() or _t("ble_not_found")
