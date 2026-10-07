@@ -151,7 +151,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.26"
+SERVER_VERSION  = "v3.9.27"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 def _ble_adapter_hint(exc=None):
@@ -1251,7 +1251,12 @@ class App(tk.Tk):
     def _auto_find_headpat_port(self):
         if not SERIAL_OK:
             return None
+        denied = []
         for info in serial.tools.list_ports.comports():
+            # Nur echte USB-Geraete. Mainboards melden bis zu 32 /dev/ttyS*, die
+            # sonst jede Suche um gut eine Sekunde pro Stueck verlaengern.
+            if info.vid is None:
+                continue
             port = info.device
             try:
                 with serial.Serial(port, BAUD, timeout=1) as s:
@@ -1266,8 +1271,19 @@ class App(tk.Tk):
                         if b"Headpat v" in data:
                             return port
                         time.sleep(0.05)
-            except Exception:
-                pass
+            except Exception as e:
+                # Unter Linux gehoeren /dev/ttyACM* der Gruppe uucp (Debian: dialout).
+                # Ohne Mitgliedschaft sieht man das Geraet, darf es aber nicht oeffnen --
+                # das sah bisher aus wie "gar kein Headpat da". pyserial verpackt
+                # EACCES in SerialException, nicht in PermissionError.
+                if isinstance(e, PermissionError) or getattr(e, "errno", None) == 13 \
+                        or "permission denied" in str(e).lower():
+                    denied.append(port)
+        if denied:
+            grp = "dialout" if os.path.exists("/etc/debian_version") else "uucp"
+            self._log(f"Keine Berechtigung fuer {', '.join(denied)} — Benutzer fehlt in "
+                      f"Gruppe '{grp}'. Beheben mit: sudo gpasswd -a $USER {grp} "
+                      f"(danach neu anmelden)", "err")
         return None
 
     def _trigger_headpat_dfu(self, port):
