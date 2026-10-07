@@ -150,9 +150,29 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.23"
+SERVER_VERSION  = "v3.9.24"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
+def _ble_adapter_hint(exc=None):
+    """Verstaendliche Meldung statt der rohen bleak-Fehlermeldung.
+    Gibt None zurueck, wenn ein Bluetooth-Adapter vorhanden und eingeschaltet ist."""
+    txt = str(exc or "").lower()
+    if exc is not None and not any(k in txt for k in
+                                   ("adapter", "no such", "not found", "dbus", "bluez", "org.bluez", "not available")):
+        return None   # anderer Fehler, nicht die Adapter-Frage
+    if os.name == "nt":
+        return _t("ble_no_adapter")
+    try:   # unter Linux direkt nachsehen, ob ein Adapter existiert
+        import glob as _glob
+        adapters = _glob.glob("/sys/class/bluetooth/hci*")
+    except Exception:
+        adapters = []
+    if not adapters:
+        return _t("ble_no_adapter")
+    return _t("ble_adapter_off")
+
+
+
 NUS_RX  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 NUS_TX  = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 HP_NAME = "Headpat"
@@ -195,6 +215,10 @@ TRANSLATIONS = {
         "btn_check_updates": "Jetzt auf Updates prüfen",
         "btn_refresh": "Aktualisieren",
         "upd_available": "Verfügbare Updates",
+        "ble_no_adapter": "Kein Bluetooth gefunden.\n\nSteckt der Bluetooth-Stick, bzw. ist das "
+                          "Bluetooth des PCs eingeschaltet?",
+        "ble_adapter_off": "Bluetooth ist aus oder blockiert.\n\nBitte Bluetooth einschalten "
+                           "(unter Linux: Flugmodus prüfen) und erneut versuchen.",
         "upd_usb_hint": "Headpat muss per USB\nmit dem PC verbunden sein.",
         "upd_all_ok": "Alles aktuell.",
         "btn_close": "Schließen",
@@ -216,6 +240,10 @@ TRANSLATIONS = {
         "btn_check_updates": "Check for Updates Now",
         "btn_refresh": "Refresh",
         "upd_available": "Available Updates",
+        "ble_no_adapter": "No Bluetooth found.\n\nIs the Bluetooth dongle plugged in, or is the "
+                          "PC's Bluetooth enabled?",
+        "ble_adapter_off": "Bluetooth is off or blocked.\n\nPlease turn Bluetooth on (on Linux: check "
+                           "airplane mode) and try again.",
         "upd_usb_hint": "Headpat must be connected\nvia USB for firmware updates.",
         "upd_all_ok": "Everything up to date.",
         "btn_close": "Close",
@@ -1271,8 +1299,8 @@ class App(tk.Tk):
                     subprocess.Popen([launcher])
                     self.after(0, self._on_close)
                 except Exception as e:
-                    self.after(0, lambda: messagebox.showerror(
-                        "Update-Fehler", str(e), parent=self))
+                    self.after(0, lambda err=e: messagebox.showerror(
+                        "Update-Fehler", str(err), parent=self))
             threading.Thread(target=_do_update, daemon=True).start()
 
     # ── Taskbar icon ──────────────────────────────────────────────────────────
@@ -2315,7 +2343,9 @@ class App(tk.Tk):
                 result = loop.run_until_complete(_do())
             except Exception as e:
                 result = []
-                dlg.after(0, lambda: status_var.set(f"Fehler: {e}"))
+                hint = _ble_adapter_hint(e)
+                msg = hint.replace("\n\n", " ") if hint else f"Fehler: {e}"
+                dlg.after(0, lambda m=msg: status_var.set(m))
             finally:
                 loop.close()
 
@@ -2371,7 +2401,8 @@ class App(tk.Tk):
         try:
             self._ble_loop.run_until_complete(self._ble_run())
         except Exception as e:
-            self._log(f"BLE Worker Fehler: {e}", "err")
+            hint = _ble_adapter_hint(e)
+            self._log("BLE: " + (hint.replace("\n\n", " ") if hint else f"Worker Fehler: {e}"), "err")
         finally:
             self._ble_loop.close()
             self._ble_loop = None
@@ -2387,7 +2418,9 @@ class App(tk.Tk):
             self._log(f"BLE: Scanne nach '{HP_NAME}'…", "info")
             device = await BleakScanner.find_device_by_name(HP_NAME, timeout=12)
         if device is None:
-            self._log("BLE: Kein Headpat gefunden — Pairing-Modus aktivieren (3s Knopf halten)", "warn")
+            hint = _ble_adapter_hint()   # steckt ueberhaupt ein Bluetooth-Adapter?
+            self._log("BLE: " + (hint.replace("\n\n", " ") if hint else
+                                 "Kein Headpat gefunden — Pairing-Modus aktivieren (3s Knopf halten)"), "warn")
             self.after(0, self._update_ble_btn)
             return
 
