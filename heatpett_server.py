@@ -16,6 +16,7 @@ import urllib.error
 import ssl
 import tempfile
 import shutil
+import shlex
 
 try:
     import certifi as _certifi
@@ -150,7 +151,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.25"
+SERVER_VERSION  = "v3.9.26"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 def _ble_adapter_hint(exc=None):
@@ -769,6 +770,23 @@ class App(tk.Tk):
             self._check_all_releases()
             time.sleep(UPDATE_INTERVAL)
 
+    def _server_asset(self):
+        """Welche Release-Datei zu dieser Installation passt.
+
+        Unter /opt liegt ein vom Paketmanager installiertes Paket. Das darf sich
+        nicht selbst durch ein tar.gz ersetzen -- dann passt der Paketindex nicht
+        mehr. Stattdessen holen wir das native Paket und spielen es ueber den
+        Paketmanager ein, auch wenn es (wie bei uns) aus keinem Repo stammt.
+        """
+        if os.name == "nt":
+            return "headpat-server-setup.exe"
+        if os.path.abspath(__file__).startswith("/opt/headpat-server"):
+            if shutil.which("pacman"):
+                return "headpat-server-any.pkg.tar.zst"
+            if shutil.which("apt-get"):
+                return "headpat-server-all.deb"
+        return "headpat-server-linux.tar.gz"
+
     def _check_all_releases(self):
         if self._checking_updates:
             return
@@ -776,11 +794,9 @@ class App(tk.Tk):
             return
         self._checking_updates = True
         try:
-            asset_win  = "headpat-server-setup.exe"
-            asset_lin  = "headpat-server-linux.tar.gz"
             checks = [
                 ("headpat", HEADPAT_REPO, "headpat-firmware.uf2"),
-                ("server",  SERVER_REPO,  asset_win if os.name == "nt" else asset_lin),
+                ("server",  SERVER_REPO,  self._server_asset()),
             ]
             found_any    = False
             net_errors   = 0
@@ -871,10 +887,9 @@ class App(tk.Tk):
                 os.makedirs(downloads, exist_ok=True)
                 dest = os.path.join(downloads, entry["asset"])
             else:
-                suffix = os.path.splitext(entry["asset"])[1]
-                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-                tmp.close()
-                dest = tmp.name
+                # Originalname behalten: pacman -U lehnt eine Datei ab, die nicht
+                # auf .pkg.tar.zst endet, dpkg ebenso ohne .deb.
+                dest = os.path.join(tempfile.mkdtemp(prefix="headpat_update_"), entry["asset"])
             req = urllib.request.Request(
                 entry["url"], headers={"User-Agent": f"HeadpatServer/{SERVER_VERSION}"})
             with urllib.request.urlopen(req, timeout=120) as r, open(dest, "wb") as f:
@@ -1281,12 +1296,47 @@ class App(tk.Tk):
                 messagebox.showerror("Update-Fehler", str(e), parent=self)
                 return
         elif os.path.abspath(__file__).startswith("/opt/headpat-server"):
-            # System-Paket (.deb/Arch) -- dpkg/pacman verwalten diese Dateien,
-            # ein Selbst-Ersetzen aus der App heraus wuerde damit kollidieren.
-            messagebox.showinfo("Update",
-                "Diese Installation kommt von einem System-Paket (.deb/Arch).\n"
-                "Bitte über deinen Paketmanager aktualisieren bzw. das neue\n"
-                "Paket von den GitHub-Releases installieren.", parent=self)
+            # System-Paket: die Dateien unter /opt gehoeren dem Paketmanager, ein
+            # Selbst-Ersetzen wuerde dessen Index zerstoeren. Also das native
+            # Paket aus dem Release einspielen -- dafuer braucht es kein Repo.
+            if shutil.which("pacman") and src.endswith(".pkg.tar.zst"):
+                pm = "pacman -U --noconfirm " + shlex.quote(src)
+            elif shutil.which("apt-get") and src.endswith(".deb"):
+                pm = "apt-get install -y --allow-downgrades " + shlex.quote(src)
+            else:
+                messagebox.showinfo("Update",
+                    "Zu dieser Installation passt kein Paket aus dem Release.\n"
+                    f"Heruntergeladen wurde: {os.path.basename(src)}\n\n"
+                    "Bitte das passende Paket von den GitHub-Releases installieren.",
+                    parent=self)
+                return
+            if not messagebox.askyesno("Update",
+                    f"{entry['tag']} jetzt installieren?\n\n"
+                    "Das System fragt einmal nach deinem Passwort.\n"
+                    "Der Server startet danach neu.", parent=self):
+                return
+
+            def _do_pkg_update():
+                try:
+                    root = ["pkexec"] if shutil.which("pkexec") else ["sudo"]
+                    r = subprocess.run(root + ["/bin/sh", "-c", pm],
+                                       capture_output=True, text=True)
+                    if r.returncode in (126, 127):   # pkexec: Passwort abgebrochen
+                        return
+                    if r.returncode != 0:
+                        err = (r.stderr.strip() or r.stdout.strip())[-500:] \
+                              or f"Exit-Code {r.returncode}"
+                        self.after(0, lambda e=err: messagebox.showerror(
+                            "Update-Fehler", f"Installation fehlgeschlagen:\n{e}",
+                            parent=self))
+                        return
+                    launcher = shutil.which("headpat-server") or "/usr/bin/headpat-server"
+                    subprocess.Popen([launcher], start_new_session=True)
+                    self.after(0, self._on_close)
+                except Exception as e:
+                    self.after(0, lambda err=e: messagebox.showerror(
+                        "Update-Fehler", str(err), parent=self))
+            threading.Thread(target=_do_pkg_update, daemon=True).start()
             return
         else:
             # src ist ein heruntergeladenes headpat-server-linux.tar.gz
