@@ -150,7 +150,7 @@ BAT_INTERVAL  = 30.0
 # so that e.g. "Upright", "GestureLeft" do NOT trigger the motor.
 _MOTOR_RE = re.compile(r'headpat|patstrap|\bleft\b|\bright\b')
 
-SERVER_VERSION  = "v3.9.24"
+SERVER_VERSION  = "v3.9.25"
 
 # ── BLE Direct ───────────────────────────────────────────────────────────────
 def _ble_adapter_hint(exc=None):
@@ -169,7 +169,18 @@ def _ble_adapter_hint(exc=None):
         adapters = []
     if not adapters:
         return _t("ble_no_adapter")
-    return _t("ble_adapter_off")
+    try:   # Adapter da – ist er per rfkill (Flugmodus) abgeschaltet?
+        for rf in _glob.glob("/sys/class/rfkill/rfkill*"):
+            with open(os.path.join(rf, "type")) as f:
+                if f.read().strip() != "bluetooth":
+                    continue
+            for state in ("soft", "hard"):
+                with open(os.path.join(rf, state)) as f:
+                    if f.read().strip() != "0":
+                        return _t("ble_adapter_off")
+    except Exception:
+        pass
+    return None   # Adapter vorhanden und an – die normale Meldung passt
 
 
 
@@ -219,6 +230,8 @@ TRANSLATIONS = {
                           "Bluetooth des PCs eingeschaltet?",
         "ble_adapter_off": "Bluetooth ist aus oder blockiert.\n\nBitte Bluetooth einschalten "
                            "(unter Linux: Flugmodus prüfen) und erneut versuchen.",
+        "ble_not_found": "Bluetooth läuft (Stick erkannt), aber kein Headpat in Reichweite.\n\n"
+                         "Headpat einschalten bzw. den Knopf 3 Sekunden halten (Pairing-Modus).",
         "upd_usb_hint": "Headpat muss per USB\nmit dem PC verbunden sein.",
         "upd_all_ok": "Alles aktuell.",
         "btn_close": "Schließen",
@@ -244,6 +257,8 @@ TRANSLATIONS = {
                           "PC's Bluetooth enabled?",
         "ble_adapter_off": "Bluetooth is off or blocked.\n\nPlease turn Bluetooth on (on Linux: check "
                            "airplane mode) and try again.",
+        "ble_not_found": "Bluetooth is working (dongle detected), but no Headpat in range.\n\n"
+                         "Turn the Headpat on, or hold its button for 3 seconds (pairing mode).",
         "upd_usb_hint": "Headpat must be connected\nvia USB for firmware updates.",
         "upd_all_ok": "Everything up to date.",
         "btn_close": "Close",
@@ -2418,9 +2433,9 @@ class App(tk.Tk):
             self._log(f"BLE: Scanne nach '{HP_NAME}'…", "info")
             device = await BleakScanner.find_device_by_name(HP_NAME, timeout=12)
         if device is None:
-            hint = _ble_adapter_hint()   # steckt ueberhaupt ein Bluetooth-Adapter?
-            self._log("BLE: " + (hint.replace("\n\n", " ") if hint else
-                                 "Kein Headpat gefunden — Pairing-Modus aktivieren (3s Knopf halten)"), "warn")
+            # Nur wenn wirklich kein Adapter da ist, vom Bluetooth reden – sonst fehlt der Headpat.
+            hint = _ble_adapter_hint() or _t("ble_not_found")
+            self._log("BLE: " + hint.replace("\n\n", " "), "warn")
             self.after(0, self._update_ble_btn)
             return
 
